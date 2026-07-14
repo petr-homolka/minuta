@@ -1,0 +1,12 @@
+rules_version = '2';
+
+// Rules pro databazi `ephemeral` (35 §3, 36 §2).
+// Rez 1: default deny vsude. Spaces/messages/payload gate pres readAt
+// prijde v rezu 3 dle 42 §3 a 36 §2.
+service cloud.firestore {
+  match /databases/{db}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

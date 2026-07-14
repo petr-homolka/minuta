@@ -1,0 +1,71 @@
+rules_version = '2';
+
+// Rules pro databazi `meta` (35 §2, 36 §3).
+// Default deny; klient smi jen vlastni data. Operace s vedlejsimi ucinky
+// (vydej prekeys, revokace cizim podnetem, ...) jdou pres Cloud Functions.
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+
+    // Verejny bundle zarizeni (33 §1): base64 (ORIGINAL, s paddingem):
+    // 32 B klic = 44 znaku, 64 B podpis = 88 znaku.
+    function validDeviceBundle(d) {
+      return d.keys().hasOnly(['identityPk', 'kxPk', 'signedPrekey', 'platform', 'createdAt', 'revoked'])
+        && d.identityPk is string && d.identityPk.size() == 44
+        && d.kxPk is string && d.kxPk.size() == 44
+        && d.signedPrekey.keys().hasOnly(['pk', 'sig', 'rotatedAt'])
+        && d.signedPrekey.pk is string && d.signedPrekey.pk.size() == 44
+        && d.signedPrekey.sig is string && d.signedPrekey.sig.size() == 88
+        && d.signedPrekey.rotatedAt is timestamp
+        && d.platform in ['pwa', 'android', 'ios']
+        && d.createdAt == request.time
+        && d.revoked == false;
+    }
+
+    match /users/{uid} {
+      // `tier` z klienta nezapisovatelny - meni jen billing webhook (41).
+      allow get: if isOwner(uid);
+      allow list: if false;
+      allow create: if isOwner(uid)
+        && !request.resource.data.keys().hasAny(['tier']);
+      allow update: if isOwner(uid)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['tier']);
+      allow delete: if false;
+
+      match /devices/{deviceId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid) && validDeviceBundle(request.resource.data);
+        // Update publikovanych klicu ZAKAZAN (ochrana proti tiche vymene
+        // klicu, BM-2). Povolena jen revokace vlastnikem (37 §2).
+        allow update: if isOwner(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['revoked', 'revokedAt'])
+          && request.resource.data.revoked == true;
+        allow delete: if false;
+
+        match /prekeys/{prekeyId} {
+          allow read: if isOwner(uid);
+          // Klient jen doplnuje davku; vydej/`consumed` znaci Cloud Function
+          // (36 §4 - jinak jde vycerpat cizi OPK = DoS).
+          allow create: if isOwner(uid)
+            && request.resource.data.keys().hasOnly(['pk', 'consumed'])
+            && request.resource.data.pk is string
+            && request.resource.data.pk.size() == 44
+            && request.resource.data.consumed == false;
+          allow update, delete: if false;
+        }
+      }
+
+      match /contacts/{contactUid} {
+        // Sifrovany blob (40) - server obsah necte, jen vlastnik.
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    match /aggregates/{document=**} {
+      // Jen Cloud Functions (39).
+      allow read, write: if false;
+    }
+  }
+}
