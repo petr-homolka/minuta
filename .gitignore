@@ -21,3 +21,7 @@ emulator-data/
 # Editor/OS
 .DS_Store
 Thumbs.db
+
+# Lokalni nastaveni nastroju
+.claude/settings.local.json
+.tmp/

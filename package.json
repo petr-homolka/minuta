@@ -1,0 +1,30 @@
+{
+  "name": "minuta",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Minuta - messenger, kde zprava zije 60 sekund",
+  "type": "module",
+  "workspaces": [
+    "app",
+    "functions"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "emulators": "npm run build -w @minuta/functions && firebase emulators:start",
+    "dev": "npm run dev -w @minuta/app",
+    "build": "npm run build --workspaces",
+    "lint": "eslint .",
+    "typecheck": "npm run typecheck --workspaces",
+    "test": "npm run test -w @minuta/app",
+    "test:emu": "firebase emulators:exec --only auth,firestore \"npm run test:emu -w @minuta/app\""
+  },
+  "devDependencies": {
+    "eslint": "^9.17.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "firebase-tools": "^14.0.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.18.0"
+  }
+}
