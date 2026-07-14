@@ -17,6 +17,8 @@ emulator-data/
 .env
 .env.*
 *.local
+# vyjimka: devcloud config obsahuje jen verejne identifikatory Firebase
+!app/.env.devcloud
 
 # Editor/OS
 .DS_Store

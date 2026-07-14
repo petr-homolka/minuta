@@ -1,27 +1,39 @@
-// Mapa: jediny vstupni bod k Firebase. Vyvoj bezi VYHRADNE proti
-// Firebase Emulator Suite (45 §1) - `demo-` projekt nikdy nesahne na
-// realnou infrastrukturu. ADR-007: dve databaze `meta` a `ephemeral`;
-// v emulatoru je `meta` mapovana na `(default)` - viz infra/README.md.
+// Mapa: jediny vstupni bod k Firebase. Dva rezimy:
+//   1) cloud - kdyz build dostal VITE_FIREBASE_* (viz .env.devcloud),
+//      mluvi s realnym projektem (zatim minuta-dev, ADR-009 europe-west3);
+//   2) emulatory - jinak v DEV bezi proti Firebase Emulator Suite (45 §1)
+//      s demo projektem, ktery nikdy nesahne na realnou infrastrukturu.
+// Produkci bez konfigurace build odmitne (pojistka).
+// ADR-007: druha databaze `ephemeral` pribude v rezu 3 - viz infra/README.md.
 import { initializeApp } from "firebase/app";
 import { connectAuthEmulator, getAuth } from "firebase/auth";
 import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
 
-// TODO(rez 10 / provisioning): realna konfigurace pro staging/prod pres env.
-const app = initializeApp({
-  apiKey: "demo-api-key",
-  authDomain: "demo-minuta.firebaseapp.com",
-  projectId: "demo-minuta",
-});
+const cloudApiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+const useCloud = typeof cloudApiKey === "string" && cloudApiKey.length > 0;
+
+if (!useCloud && !import.meta.env.DEV) {
+  throw new Error("Build bez Firebase konfigurace (VITE_FIREBASE_*) neni urceny k nasazeni.");
+}
+
+const app = initializeApp(
+  useCloud
+    ? {
+        apiKey: cloudApiKey,
+        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+      }
+    : {
+        apiKey: "demo-api-key",
+        authDomain: "demo-minuta.firebaseapp.com",
+        projectId: "demo-minuta",
+      },
+);
 
 export const auth = getAuth(app);
 export const metaDb = getFirestore(app);
-// TODO(rez 3, ADR-007): pridat `ephemeralDb` - emulator zatim neumi
-// vice databazi, reseni oddeleni viz infra/README.md.
 
-if (import.meta.env.DEV) {
+if (!useCloud) {
   connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
   connectFirestoreEmulator(metaDb, "127.0.0.1", 8080);
-} else {
-  // Bezpecnostni pojistka: produkci zatim nestavime (42 §3, rez 1).
-  throw new Error("Produkcni konfigurace Firebase zatim neexistuje (rez 1).");
 }

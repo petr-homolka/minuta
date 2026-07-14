@@ -26,6 +26,16 @@ spec commitnuta jako v1.
   bundle, idb); `npm run test:emu` — 9 integračních (Rules + registrace).
   Lint i typecheck zelené.
 
+## Reálný Firebase projekt (dev)
+
+- `minuta-dev-fb2e6` (alias `dev`), Firestore `(default)` v **europe-west3**,
+  Auth: e-mail magic link + anonymní. Plán Spark, žádný billing.
+- **Nasazeno na https://minuta-dev-fb2e6.web.app** (`npm run deploy:dev`) —
+  ověřeno: anonymní přihlášení + registrace zařízení proti reálné DB.
+- Cloud build: `app/.env.devcloud` (veřejné identifikátory, commitnuto);
+  bez env vars běží build v DEV proti emulátorům jako dřív.
+- Vlastní doména (dev.minuta.cz / minuta.cz) zatím odložena.
+
 ## Známé odchylky / TODO
 
 - Firestore emulátor neumí dvě databáze → řez 1 běží jen s `meta` =
@@ -34,6 +44,7 @@ spec commitnuta jako v1.
 - Service Worker / instalovatelnost PWA: zatím jen manifest, SW až
   v pozdějším řezu (UX pass, řez 9).
 - `design/` čeká na zkopírování HTML artefaktů (odkazy níže).
+- Bundle ~1,3 MB (Firebase SDK + libsodium) — code-split až při UX passu.
 
 ## Interaktivní dema (artefakty ze specifikace)
 
