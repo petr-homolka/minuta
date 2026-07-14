@@ -1,0 +1,106 @@
+/* Minimalni skelet vzhledu - plny design "Sklo a cas" (43) prijde v rezu 9. */
+:root {
+  color-scheme: dark;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 30% 20%, #16213f, #0b1020 65%);
+  color: #e2e8f0;
+}
+
+.card {
+  width: min(26rem, 92vw);
+  padding: 2rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+}
+
+h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.6rem;
+}
+
+.tagline {
+  margin: 0 0 1.5rem;
+  color: #94a3b8;
+}
+
+form {
+  display: grid;
+  gap: 0.5rem;
+}
+
+label {
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+input {
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  font-size: 1rem;
+}
+
+button {
+  margin-top: 0.5rem;
+  padding: 0.65rem 1rem;
+  border-radius: 0.5rem;
+  border: none;
+  background: #38bdf8;
+  color: #06121f;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+button.secondary {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #e2e8f0;
+  font-weight: 400;
+}
+
+hr {
+  margin: 1.25rem 0;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.note {
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.note.error {
+  color: #fca5a5;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 1rem;
+  margin: 0 0 1rem;
+}
+
+dt {
+  color: #94a3b8;
+}
+
+dd {
+  margin: 0;
+}
