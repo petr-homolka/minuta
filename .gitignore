@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+functions/lib/
+
+# Firebase emulators & cache
+.firebase/
+*-debug.log
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+emulator-data/
+
+# Env & local overrides (nikdy necommitovat tajemství)
+.env
+.env.*
+*.local
+
+# Editor/OS
+.DS_Store
+Thumbs.db
