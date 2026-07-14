@@ -63,6 +63,7 @@ Jednotný referenční přehled pro Trust & Safety. Zdroj pravdy a detaily:
 | ADR-007 | Dvě databáze; `ephemeral` bez PITR/backupů | 35 §1 |
 | ADR-008 | Autorita času výhradně serverová | 34 |
 | ADR-009 | EU datová rezidence: **europe-west3 (Frankfurt)** pro Firestore, Storage i Functions | 05 §10, 35 |
+| ADR-010 | Upřesnění ADR-002: wrap MK = přímo `crypto_box_seal` na SPK/OPK (efemérní klíč uvnitř každého wrapu; obálka v1 nemá samostatné `ephPub`) — nejauditovatelnější varianta „seal-ekvivalentu" z 33 §2 | 33 §2, kód `app/src/lib/crypto/` |
 
 ## Budoucí přílohy
 
