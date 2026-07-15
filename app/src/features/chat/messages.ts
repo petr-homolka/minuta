@@ -67,6 +67,24 @@ export async function sendTextMessage(input: {
   return msgId;
 }
 
+/**
+ * Odvolani/spaleni vlastni zpravy (N7 body 1-2): odesilatel smaze obalku
+ * i payload - Rules pusti delete jen odesilateli. Funguje pred otevrenim
+ * (unsend) i behem horeni (burn now); u prijemce, ktery uz cte, dohori
+ * obsah lokalne v RAM (34 §5) - drivejsi konec je vzdy bezpecny smer.
+ */
+export async function burnOwnMessage(
+  db: Firestore,
+  spaceId: string,
+  msgId: string,
+): Promise<void> {
+  const messageRef = doc(db, "spaces", spaceId, "messages", msgId);
+  const batch = writeBatch(db);
+  batch.delete(doc(messageRef, "payload", "v"));
+  batch.delete(messageRef);
+  await batch.commit();
+}
+
 export interface OpenedMessage {
   plaintext: Uint8Array;
   /** Serverove readAt (ms) - kotva odpoctu je ale potvrzeni zapisu (34 §5). */

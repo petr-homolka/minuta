@@ -38,3 +38,5 @@ do té doby multi-DB podpora emulátoru.
 - [ ] Budget 5 €/měs + alerty 50/80/100 % (32 §3).
 - [ ] Auth metody: magic link, Google, Apple, anonymní (07); doména `auth.minuta.app` + SPF/DKIM/DMARC.
 - [ ] App Check, Cloud Armor / rate limity, log retention 30 d bez IP (03, 35 §4).
+- [ ] Collection-group indexy v `ephemeral`: `members.uid` (moje Spaces),
+  `messages.senderUid` (burn-all) — emulátor je má implicitně, prod ne.

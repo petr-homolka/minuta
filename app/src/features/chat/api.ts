@@ -111,3 +111,12 @@ export async function callRevokeInvite(
     "revokeInvite",
   )({ tokenHash });
 }
+
+/** Panika (N7 bod 4): spali vsechny me zive zpravy ve vsech Spaces. */
+export async function callBurnAll(functions: Functions): Promise<number> {
+  const result = await call<Record<string, never>, { deleted: number }>(
+    functions,
+    "burnAll",
+  )({});
+  return result.data.deleted;
+}

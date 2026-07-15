@@ -4,9 +4,9 @@ Aktualizováno: 2026-07-14
 
 ## Fáze
 
-**Řezy 1–5 (42 §3) HOTOVY:** Skelet + Auth · Krypto jádro · Data model
-+ Rules `ephemeral` · 1:1 zpráva end-to-end · **Space + pozvánky + QR**.
-Repo: https://github.com/petr-homolka/minuta
+**Řezy 1–6 (42 §3) HOTOVY:** Skelet + Auth · Krypto jádro · Data model
++ Rules `ephemeral` · 1:1 zpráva end-to-end · Space + pozvánky + QR ·
+**Kontrola odesílatele (N7)**. Repo: https://github.com/petr-homolka/minuta
 
 ## Co funguje (ověřeno testy i ručně v prohlížeči)
 
@@ -45,10 +45,14 @@ Repo: https://github.com/petr-homolka/minuta
   **náhled před vstupem s explicitním potvrzením** (12 §bezpečnost),
   hashchange listener, reset navigace při změně účtu. Ověřeno v prohlížeči:
   vytvoření pozvánky, QR, vstup přes náhled, odeslání zprávy.
-- **Testy:** `npm test` — 23 unit; `npm run test:emu` — 25 integračních
+- **Kontrola odesílatele (řez 6, N7):** unsend (odvolat nepřečtenou),
+  burn now (spálit během hoření), stav „přečteno HH:MM · shořelo",
+  burn-all — CF `burnAll` smaže všechny mé živé zprávy ve všech Spaces
+  (collection-group dotaz, chunkované batche); v UI dvoukrokové potvrzení.
+- **Testy:** `npm test` — 23 unit; `npm run test:emu` — 28 integračních
   (Rules meta+ephemeral, registrace, E2E duo přes pozvánku, vícečlenný
-  Space se skupinovou zprávou pro oba příjemce, revokace, heslo, prošlá
-  pozvánka, limit 3 Spaces). Lint i typecheck zelené.
+  Space, pozvánky vč. hesla/revokace/expirace, unsend/burn now/burn-all).
+  Lint i typecheck zelené.
 
 ## Reálný Firebase projekt (dev)
 
@@ -89,6 +93,9 @@ Repo: https://github.com/petr-homolka/minuta
 
 ## Další krok
 
-**Řez 6 (42 §3): Kontrola odesílatele** — unsend (odvolání nepřečtené),
-burn now (spálit jednu), burn-all (panika, N7 — CF `POST /v1/messages/
-burn-all`). Zvážit: Blaze na minuta-dev kvůli nasazení CF (chat na web.app).
+**Řez 7 (42 §3): Známí + identita** — roster blob (40, šifrovaný contacts
+blob v `meta`), identicon z otisku IK, safety code 12 číslic + QR
+(33 §6, 37 §4), key change banner místo tvrdé chyby (37 §3).
+Zvážit: Blaze na minuta-dev kvůli nasazení CF (chat na web.app).
+Pozn.: burn-all v prod vyžaduje collection-group index `messages.senderUid`
+(zapsáno v infra/README).

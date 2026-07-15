@@ -7,7 +7,12 @@ import { ephemeralDb, functions } from "../../lib/firebase";
 import { loadDeviceIdentity, type DeviceIdentity } from "../device/key-store";
 import { callGetKeyBundles, callGetSpaceKeyBundles } from "./api";
 import { InvitePanel } from "./InvitePanel";
-import { MAX_TEXT_LENGTH, openReceivedMessage, sendTextMessage } from "./messages";
+import {
+  burnOwnMessage,
+  MAX_TEXT_LENGTH,
+  openReceivedMessage,
+  sendTextMessage,
+} from "./messages";
 import { useBurnCountdown } from "./useBurnCountdown";
 import { useMessages, type MessageMeta } from "./useChatData";
 
@@ -53,6 +58,18 @@ export function ChatScreen(props: { uid: string; spaceId: string; onBack: () => 
       setText("");
     } catch {
       setError("Odeslání selhalo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleBurnOwn(message: MessageMeta) {
+    setBusy(true);
+    setError(null);
+    try {
+      await burnOwnMessage(ephemeralDb, props.spaceId, message.msgId);
+    } catch {
+      setError("Spálení selhalo.");
     } finally {
       setBusy(false);
     }
@@ -123,6 +140,7 @@ export function ChatScreen(props: { uid: string; spaceId: string; onBack: () => 
               burned={burned}
               busy={busy}
               onOpen={() => void handleOpen(m)}
+              onBurnOwn={() => void handleBurnOwn(m)}
             />
           </li>
         ))}
@@ -154,12 +172,46 @@ function MessageRow(props: {
   burned: boolean;
   busy: boolean;
   onOpen: () => void;
+  onBurnOwn: () => void;
 }) {
   const { message } = props;
   if (message.senderUid === props.me) {
+    // Kontrola odesilatele (N7 body 1-3): odvolat / spalit hned + stav
+    // "Precteno HH:MM · Shori HH:MM" dle readAt.
+    if (!message.readAt) {
+      return (
+        <span className="note">
+          odesláno (zavřená obálka){" "}
+          <button
+            type="button"
+            className="linklike"
+            disabled={props.busy}
+            onClick={props.onBurnOwn}
+          >
+            Odvolat
+          </button>
+        </span>
+      );
+    }
+    const readAtMs = message.readAt.toMillis();
+    const burnAtMs = readAtMs + 60_000;
+    const fmt = (ms: number) =>
+      new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     return (
       <span className="note">
-        {message.readAt ? "otevřeno — dohořívá" : "odesláno (zavřená obálka)"}
+        {burnAtMs > Date.now()
+          ? `přečteno ${fmt(readAtMs)} · dohořívá`
+          : `přečteno ${fmt(readAtMs)} · shořelo ${fmt(burnAtMs)}`}{" "}
+        {burnAtMs > Date.now() && (
+          <button
+            type="button"
+            className="linklike"
+            disabled={props.busy}
+            onClick={props.onBurnOwn}
+          >
+            Spálit hned
+          </button>
+        )}
       </span>
     );
   }

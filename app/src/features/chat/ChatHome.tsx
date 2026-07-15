@@ -1,9 +1,10 @@
-// Mapa: domovska obrazovka - moje Spaces (collection-group listener)
-// + zalozeni duo/Space. Vstup novych clenu je VYHRADNE pozvankou
-// (11 §Vstup) - link/QR se vytvari uvnitr Space (InvitePanel).
+// Mapa: domovska obrazovka - moje Spaces (collection-group listener),
+// zalozeni duo/Space a panicke "Spalit vse" (N7 bod 4, dvoukrokove
+// potvrzeni). Vstup novych clenu je VYHRADNE pozvankou (11 §Vstup) -
+// link/QR se vytvari uvnitr Space (InvitePanel).
 import { useState } from "react";
 import { ephemeralDb, functions } from "../../lib/firebase";
-import { callCreateSpace } from "./api";
+import { callBurnAll, callCreateSpace } from "./api";
 import { useMySpaces } from "./useChatData";
 
 export function ChatHome(props: {
@@ -13,6 +14,9 @@ export function ChatHome(props: {
   const spaces = useMySpaces(ephemeralDb, props.uid);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [burnState, setBurnState] = useState<"idle" | "confirm" | "busy" | "done">(
+    "idle",
+  );
 
   async function handleCreate(type: "duo" | "space") {
     setCreating(true);
@@ -54,6 +58,38 @@ export function ChatHome(props: {
         Nový Space
       </button>
       {error && <p className="note error">{error}</p>}
+
+      <hr />
+      {burnState === "idle" && (
+        <button type="button" className="secondary" onClick={() => setBurnState("confirm")}>
+          🔥 Spálit vše
+        </button>
+      )}
+      {burnState === "confirm" && (
+        <p className="note">
+          Opravdu spálit všechny tvé živé zprávy ve všech konverzacích?{" "}
+          <button
+            type="button"
+            className="linklike"
+            onClick={() => {
+              setBurnState("busy");
+              callBurnAll(functions)
+                .then(() => setBurnState("done"))
+                .catch(() => {
+                  setBurnState("idle");
+                  setError("Spálení selhalo.");
+                });
+            }}
+          >
+            Ano, spálit
+          </button>{" "}
+          <button type="button" className="linklike" onClick={() => setBurnState("idle")}>
+            Zrušit
+          </button>
+        </p>
+      )}
+      {burnState === "busy" && <p className="note">Pálím…</p>}
+      {burnState === "done" && <p className="note">🔥 Spáleno.</p>}
     </section>
   );
 }
