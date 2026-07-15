@@ -6,6 +6,12 @@ import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypt
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { ephemeralDb, REGION } from "./lib/db";
+import {
+  blockedBetween,
+  enforceRateLimit,
+  requireAuth,
+  requireFullAccount,
+} from "./lib/guards";
 import { memberLimit } from "./spaces";
 
 const MAX_TTL_MIN = 7 * 24 * 60;
@@ -17,13 +23,10 @@ function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-function requireAuth(uid: string | undefined): string {
-  if (!uid) throw new HttpsError("unauthenticated", "Prihlaseni je povinne.");
-  return uid;
-}
-
 export const createInvite = onCall({ region: REGION }, async (request) => {
-  const uid = requireAuth(request.auth?.uid);
+  // 27: anonymni ucet negeneruje magic linky.
+  const uid = requireFullAccount(request);
+  await enforceRateLimit(uid, "createInvite", 10);
   const { spaceId, expiresInMinutes, maxUses, password } = request.data ?? {};
   if (typeof spaceId !== "string" || spaceId.length === 0) {
     throw new HttpsError("invalid-argument", "spaceId chybi.");
@@ -121,7 +124,7 @@ async function loadLiveInvite(token: unknown): Promise<LiveInvite> {
 }
 
 export const previewInvite = onCall({ region: REGION }, async (request) => {
-  requireAuth(request.auth?.uid);
+  requireAuth(request);
   const invite = await loadLiveInvite(request.data?.token);
   const space = await ephemeralDb.doc(`spaces/${invite.spaceId}`).get();
   if (!space.exists) throw invalidInvite();
@@ -135,7 +138,8 @@ export const previewInvite = onCall({ region: REGION }, async (request) => {
 });
 
 export const joinSpace = onCall({ region: REGION }, async (request) => {
-  const uid = requireAuth(request.auth?.uid);
+  const uid = requireAuth(request); // anonymni vstup je zadouci (N4)
+  await enforceRateLimit(uid, "joinSpace", 30);
   // Zamerne NE loadLiveInvite: uz-clen ma vstup idempotentni i po
   // vycerpani/revokaci pozvanky (nic noveho nezpristupnuje). Prisne
   // kontroly (revoked, uses, heslo, kapacita) plati pro NOVE cleny v tx.
@@ -143,6 +147,13 @@ export const joinSpace = onCall({ region: REGION }, async (request) => {
   const passwordOk = passwordVerifier(inviteSnap)(request.data?.password);
   const tokenHash = inviteSnap.id;
   const targetSpaceId = inviteSnap.get("spaceId") as string;
+
+  // Blokace mezi vstupujicim a tvurcem pozvanky = pozvanka pro nej neplati
+  // (27; nerozlisovat duvod - blokovany se nic nedozvi).
+  const inviteCreator = inviteSnap.get("createdBy") as string;
+  if (uid !== inviteCreator && (await blockedBetween(uid, inviteCreator))) {
+    throw invalidInvite();
+  }
 
   const spaceId = await ephemeralDb.runTransaction(async (tx) => {
     const spaceRef = ephemeralDb.doc(`spaces/${targetSpaceId}`);
@@ -189,7 +200,7 @@ export const joinSpace = onCall({ region: REGION }, async (request) => {
 });
 
 export const revokeInvite = onCall({ region: REGION }, async (request) => {
-  const uid = requireAuth(request.auth?.uid);
+  const uid = requireAuth(request);
   const tokenHash: unknown = request.data?.tokenHash;
   if (typeof tokenHash !== "string" || tokenHash.length !== 64) {
     throw new HttpsError("invalid-argument", "tokenHash ma spatny tvar.");

@@ -69,6 +69,14 @@ service cloud.firestore {
         // server vidi jen neprulomne wraps, cist/psat smi jen vlastnik.
         allow read, write: if isOwner(uid);
       }
+
+      match /blocks/{blockedUid} {
+        // Blokace (27): spravuje jen vlastnik; vynucovani cte Cloud
+        // Function (Admin SDK). Blokovany se o ni nikdy nedozvi.
+        allow read, write: if isOwner(uid);
+      }
+      // users/{uid}/rateLimits/* zamerne BEZ pravidla - citace spravuji
+      // vyhradne Cloud Functions (default deny).
     }
 
     match /aggregates/{document=**} {

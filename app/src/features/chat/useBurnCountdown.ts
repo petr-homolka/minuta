@@ -17,6 +17,8 @@ export function useBurnCountdown(): {
   burning: BurningMessage | null;
   burned: boolean;
   ignite: (plaintext: Uint8Array) => void;
+  /** Okamzite uhaseni (napr. po nahlaseni, 27) - wipe + stav "shorelo". */
+  snuff: () => void;
 } {
   const [burning, setBurning] = useState<BurningMessage | null>(null);
   const [burned, setBurned] = useState(false);
@@ -64,8 +66,14 @@ export function useBurnCountdown(): {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [burning !== null]);
 
+  function snuff() {
+    extinguish();
+    setBurning(null);
+    setBurned(true);
+  }
+
   // Unmount = okamzity wipe (plaintext nikdy neprezije obrazovku).
   useEffect(() => extinguish, []);
 
-  return { burning, burned, ignite };
+  return { burning, burned, ignite, snuff };
 }

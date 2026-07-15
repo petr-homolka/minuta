@@ -7,6 +7,7 @@
 // (consumed) + rate limit (27); zatim se bali na SPK (ADR-010).
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { ephemeralDb, metaDb, REGION } from "./lib/db";
+import { blockedBetween } from "./lib/guards";
 
 interface PublicBundle {
   deviceId: string;
@@ -51,7 +52,12 @@ export const getKeyBundles = onCall({ region: REGION }, async (request) => {
     members.doc(callerUid).get(),
     members.doc(targetUid).get(),
   ]);
-  if (!callerDoc.exists || !targetDoc.exists) {
+  // Blokace = zadny vydej bundlu v zadnem smeru (27); duvod nerozlisovat.
+  if (
+    !callerDoc.exists ||
+    !targetDoc.exists ||
+    (callerUid !== targetUid && (await blockedBetween(callerUid, targetUid)))
+  ) {
     throw new HttpsError("permission-denied", "Nelze vydat.");
   }
 
@@ -74,10 +80,16 @@ export const getSpaceKeyBundles = onCall({ region: REGION }, async (request) => 
     throw new HttpsError("permission-denied", "Nelze vydat.");
   }
 
+  // Blokovani clenove (v kteremkoli smeru) se z vydeje vynechaji -
+  // odesilatel pro ne nezabali MK, zadne dalsi zpravy nedostanou (27).
   const others = memberUids.filter((uid) => uid !== callerUid);
-  const bundles = await Promise.all(others.map(activeDeviceBundles));
+  const blockFlags = await Promise.all(
+    others.map((uid) => blockedBetween(callerUid, uid)),
+  );
+  const reachable = others.filter((_, i) => !blockFlags[i]);
+  const bundles = await Promise.all(reachable.map(activeDeviceBundles));
   return {
-    devices: others.flatMap((uid, i) =>
+    devices: reachable.flatMap((uid, i) =>
       (bundles[i] ?? []).map((bundle) => ({ uid, ...bundle })),
     ),
   };

@@ -107,7 +107,11 @@ export function App() {
             onBack={() => setOpenSpaceId(null)}
           />
         ) : (
-          <ChatHome uid={user.uid} onOpenSpace={setOpenSpaceId} />
+          <ChatHome
+            uid={user.uid}
+            isAnonymous={user.isAnonymous}
+            onOpenSpace={setOpenSpaceId}
+          />
         ))}
       <hr />
       <p className="note">

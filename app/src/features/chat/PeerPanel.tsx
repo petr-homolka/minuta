@@ -12,6 +12,7 @@ import { Identicon } from "../contacts/Identicon";
 import { addContact, ensureRosterKey } from "../contacts/store";
 import { loadDeviceIdentity } from "../device/key-store";
 import { callGetSpaceKeyBundles } from "./api";
+import { blockUser, listBlockedUids, unblockUser } from "./blocks";
 import { isVerified, markVerified } from "./tofu";
 
 interface PeerInfo {
@@ -28,6 +29,7 @@ export function PeerPanel(props: { uid: string; spaceId: string }) {
   const [status, setStatus] = useState<"loading" | "ready" | "empty" | "error">("loading");
   const [contactName, setContactName] = useState("");
   const [saved, setSaved] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,8 +49,10 @@ export function PeerPanel(props: { uid: string; spaceId: string }) {
         QRCode.toDataURL(`minuta:verify:${code}`, { errorCorrectionLevel: "H", width: 160 }),
         isVerified(first.uid, first.identityPk),
       ]);
+      const blocks = await listBlockedUids(metaDb, props.uid);
       if (!cancelled) {
         setPeer({ uid: first.uid, identityPk: first.identityPk, fingerprint, code, qrDataUrl, verified });
+        setIsBlocked(blocks.has(first.uid));
         setStatus("ready");
       }
     })().catch(() => {
@@ -101,6 +105,20 @@ export function PeerPanel(props: { uid: string; spaceId: string }) {
           </button>
         </p>
       )}
+      <p>
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => {
+            const action = isBlocked
+              ? unblockUser(metaDb, props.uid, peer.uid)
+              : blockUser(metaDb, props.uid, peer.uid);
+            void action.then(() => setIsBlocked(!isBlocked));
+          }}
+        >
+          {isBlocked ? "Odblokovat" : "🚫 Zablokovat"}
+        </button>
+      </p>
       {saved ? (
         <p className="note">Uloženo mezi Známé ✓</p>
       ) : (

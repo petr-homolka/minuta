@@ -10,6 +10,7 @@ import { useMySpaces } from "./useChatData";
 
 export function ChatHome(props: {
   uid: string;
+  isAnonymous: boolean;
   onOpenSpace: (spaceId: string) => void;
 }) {
   const spaces = useMySpaces(ephemeralDb, props.uid);
@@ -49,16 +50,30 @@ export function ChatHome(props: {
         ))}
       </ul>
 
-      <button type="button" disabled={creating} onClick={() => void handleCreate("duo")}>
-        Nová 1:1 konverzace
-      </button>{" "}
-      <button
-        type="button"
-        disabled={creating}
-        onClick={() => void handleCreate("space")}
-      >
-        Nový Space
-      </button>
+      {props.isAnonymous ? (
+        // 27: anonymni ucet smi jen odpovidat v pozvane konverzaci.
+        <p className="note">
+          Anonymní účet může jen vstupovat pozvánkou a odpovídat. Pro
+          zakládání konverzací se přihlas e-mailem.
+        </p>
+      ) : (
+        <>
+          <button
+            type="button"
+            disabled={creating}
+            onClick={() => void handleCreate("duo")}
+          >
+            Nová 1:1 konverzace
+          </button>{" "}
+          <button
+            type="button"
+            disabled={creating}
+            onClick={() => void handleCreate("space")}
+          >
+            Nový Space
+          </button>
+        </>
+      )}
       {error && <p className="note error">{error}</p>}
 
       <hr />

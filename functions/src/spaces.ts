@@ -6,6 +6,7 @@
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { ephemeralDb, metaDb, REGION } from "./lib/db";
+import { blockedBetween, enforceRateLimit, requireFullAccount } from "./lib/guards";
 
 const SPACE_TTL_MS = 24 * 3_600_000; // free Space zije 24 h (11)
 const MAX_ACTIVE_SPACES_FREE = 3; // 11 §Limity
@@ -15,10 +16,9 @@ export function memberLimit(spaceType: string): number {
 }
 
 export const createSpace = onCall({ region: REGION }, async (request) => {
-  const uid = request.auth?.uid;
-  if (!uid) {
-    throw new HttpsError("unauthenticated", "Prihlaseni je povinne.");
-  }
+  // 27: anonymni ucet nezaklada konverzace - smi jen odpovidat v pozvane.
+  const uid = requireFullAccount(request);
+  await enforceRateLimit(uid, "createSpace", 10);
   const type: unknown = request.data?.type;
   if (type !== "duo" && type !== "space") {
     throw new HttpsError("invalid-argument", "type musi byt 'duo' nebo 'space'.");
@@ -41,7 +41,9 @@ export const createSpace = onCall({ region: REGION }, async (request) => {
       .where("revoked", "==", false)
       .limit(1)
       .get();
-    if (peerDevices.empty) {
+    // Blokace v kteremkoli smeru = zadne nove konverzace (27); odpoved
+    // nerozlisuje duvod (zadna notifikace blokovanemu).
+    if (peerDevices.empty || (await blockedBetween(uid, peerUid))) {
       throw new HttpsError("permission-denied", "Nelze zalozit.");
     }
   }

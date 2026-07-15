@@ -113,6 +113,24 @@ export async function callRevokeInvite(
   )({ tokenHash });
 }
 
+/** Nahlaseni zpravy (27) - dukaz uz je zapeceteny na klic moderace. */
+export async function callReportMessage(
+  functions: Functions,
+  input: {
+    spaceId: string;
+    msgId: string;
+    reportedUid: string;
+    category: string;
+    evidence: string;
+  },
+): Promise<string> {
+  const result = await call<typeof input, { reportId: string }>(
+    functions,
+    "reportMessage",
+  )(input);
+  return result.data.reportId;
+}
+
 /** Panika (N7 bod 4): spali vsechny me zive zpravy ve vsech Spaces. */
 export async function callBurnAll(functions: Functions): Promise<number> {
   const result = await call<Record<string, never>, { deleted: number }>(

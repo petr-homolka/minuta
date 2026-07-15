@@ -4,10 +4,10 @@ Aktualizováno: 2026-07-14
 
 ## Fáze
 
-**Řezy 1–7 (42 §3) HOTOVY:** Skelet + Auth · Krypto jádro · Data model
+**Řezy 1–8 (42 §3) HOTOVY:** Skelet + Auth · Krypto jádro · Data model
 + Rules `ephemeral` · 1:1 zpráva end-to-end · Space + pozvánky + QR ·
-Kontrola odesílatele (N7) · **Známí + identita (40, 37)**.
-Repo: https://github.com/petr-homolka/minuta
+Kontrola odesílatele (N7) · Známí + identita (40, 37) · **T&S minimum
+(27, 29)**. Repo: https://github.com/petr-homolka/minuta
 
 ## Co funguje (ověřeno testy i ručně v prohlížeči)
 
@@ -56,9 +56,19 @@ Repo: https://github.com/petr-homolka/minuta
   (40 §2). Identicon 5×5 z otisku IK; bezpečnostní kód 12 číslic + QR
   (33 §6), „ověřeno ✓" vázané na konkrétní IK; key-change už není tvrdá
   chyba, ale banner s volbou „Důvěřovat novým klíčům" (37 §3).
-- **Testy:** `npm test` — 30 unit; `npm run test:emu` — 31 integračních
-  (+ roster roundtrip proti Rules, cizí roster nečitelný, duo přes
-  peerUid). Lint i typecheck zelené.
+- **T&S minimum (řez 8, 27 + 29):** nahlášení běžící zprávy — klient se
+  souhlasem zapečetí dešifrovaný obsah na veřejný klíč moderace
+  (crypto_box_seal; CF ani DB plaintext nevidí), CF uloží s kategorií
+  C1–C6, prioritou a retencí 90 d; klientům nedostupné (default deny);
+  po nahlášení se zpráva u nahlašujícího hned uhasí. Blokace: dokumenty
+  `users/{uid}/blocks` (owner-only), vynuceno v CF — žádné nové duo,
+  žádný výdej bundlů, pozvánka od/pro blokovaného neplatí; klient skrývá
+  obálky. Anonymní účet nezakládá Spaces/pozvánky — jen vstup a odpověď
+  (27/N4). Rate limity: hodinová okna v CF (createSpace 10, invites 10,
+  join 30, reports 20). Dev klíč moderace: public v kódu, secret v
+  `infra/moderation-dev-secret.local` (mimo git).
+- **Testy:** `npm test` — 31 unit; `npm run test:emu` — 35 integračních
+  (+ report/blokace/anonymní omezení/rate limit). Lint i typecheck zelené.
 
 ## Reálný Firebase projekt (dev)
 
@@ -99,7 +109,11 @@ Repo: https://github.com/petr-homolka/minuta
 
 ## Další krok
 
-**Řez 8 (42 §3): T&S minimum** — report → moderační projekt (29),
-blokace uživatele (27), rate limity. Poté řez 9 (UX pass — mj. rozpad
-ChatScreen, 293 řádků těsně pod limitem 31 §2) a řez 10 (zpevnění).
+**Řez 9 (42 §3): UX pass** — design „Sklo a čas" (43, HTML návrh
+v artefaktu), prstenec odpočtu, stavy a empty states (28), přístupnost,
+Service Worker/instalovatelnost. Poté řez 10 (zpevnění: CSP/HSTS,
+budget alerty, force-update config).
 Zvážit: Blaze na minuta-dev kvůli nasazení CF (chat na web.app).
+Pozn. řez 8: moderační úložiště je v prod ODDĚLENÝ projekt (45) —
+v dev simulováno kolekcí `moderationReports`; zpráv/min rate limit
+vyžaduje CF-send nebo App Check (TODO řez 10).

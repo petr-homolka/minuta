@@ -5,6 +5,7 @@ import { initializeTestEnvironment } from "@firebase/rules-unit-testing";
 import { initializeApp, type FirebaseApp } from "firebase/app";
 import {
   connectAuthEmulator,
+  createUserWithEmailAndPassword,
   getAuth,
   signInAnonymously,
   type Auth,
@@ -38,7 +39,15 @@ export const EMULATOR_CONFIG = {
   projectId: "demo-minuta",
 };
 
-export async function createParty(name: string): Promise<Party> {
+/**
+ * Vychozi party = plny ucet (e-mail) - anonymni ucty nesmi zakladat
+ * Spaces/pozvanky (27), coz vetsina testu potrebuje. `anonymous: true`
+ * vytvori prijemce pozvanky dle N4.
+ */
+export async function createParty(
+  name: string,
+  options?: { anonymous?: boolean },
+): Promise<Party> {
   const app = initializeApp(EMULATOR_CONFIG, name);
   const auth = getAuth(app);
   const db = getFirestore(app);
@@ -46,7 +55,13 @@ export async function createParty(name: string): Promise<Party> {
   connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
   connectFirestoreEmulator(db, "127.0.0.1", 8080);
   connectFunctionsEmulator(functions, "127.0.0.1", 5001);
-  const { user } = await signInAnonymously(auth);
+  const { user } = options?.anonymous
+    ? await signInAnonymously(auth)
+    : await createUserWithEmailAndPassword(
+        auth,
+        `${name}-${Date.now()}@test.local`,
+        "test-heslo-123",
+      );
   const deviceId = await ensureDeviceRegistered(db, user.uid);
   return { app, auth, db, functions, uid: user.uid, deviceId };
 }
