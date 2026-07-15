@@ -1,6 +1,7 @@
-// Mapa: domovska obrazovka chatu - moje Spaces + zalozeni dua podle UID
-// protistrany. Pozvanky magic linkem/QR prijdou v rezu 5 (12).
-import { useState, type FormEvent } from "react";
+// Mapa: domovska obrazovka - moje Spaces (collection-group listener)
+// + zalozeni duo/Space. Vstup novych clenu je VYHRADNE pozvankou
+// (11 §Vstup) - link/QR se vytvari uvnitr Space (InvitePanel).
+import { useState } from "react";
 import { ephemeralDb, functions } from "../../lib/firebase";
 import { callCreateSpace } from "./api";
 import { useMySpaces } from "./useChatData";
@@ -10,20 +11,17 @@ export function ChatHome(props: {
   onOpenSpace: (spaceId: string) => void;
 }) {
   const spaces = useMySpaces(ephemeralDb, props.uid);
-  const [peerUid, setPeerUid] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
-  async function handleCreate(event: FormEvent) {
-    event.preventDefault();
+  async function handleCreate(type: "duo" | "space") {
     setCreating(true);
     setError(null);
     try {
-      const spaceId = await callCreateSpace(functions, peerUid.trim());
-      setPeerUid("");
+      const spaceId = await callCreateSpace(functions, type);
       props.onOpenSpace(spaceId);
     } catch {
-      setError("Duo se nepodařilo založit — zkontroluj UID protistrany.");
+      setError("Založení selhalo — možná máš vyčerpaný limit 3 aktivních Spaces.");
     } finally {
       setCreating(false);
     }
@@ -32,7 +30,9 @@ export function ChatHome(props: {
   return (
     <section>
       <h2>Konverzace</h2>
-      {spaces.length === 0 && <p className="note">Zatím žádná.</p>}
+      {spaces.length === 0 && (
+        <p className="note">Zatím žádná. Založ novou, nebo vstup pozvánkou.</p>
+      )}
       <ul className="spaces">
         {spaces.map((s) => (
           <li key={s.spaceId}>
@@ -43,23 +43,17 @@ export function ChatHome(props: {
         ))}
       </ul>
 
-      <form onSubmit={handleCreate}>
-        <label htmlFor="peer">UID protistrany (řez 5 přinese pozvánky)</label>
-        <input
-          id="peer"
-          value={peerUid}
-          required
-          onChange={(e) => setPeerUid(e.target.value)}
-        />
-        <button type="submit" disabled={creating}>
-          Založit duo
-        </button>
-      </form>
+      <button type="button" disabled={creating} onClick={() => void handleCreate("duo")}>
+        Nová 1:1 konverzace
+      </button>{" "}
+      <button
+        type="button"
+        disabled={creating}
+        onClick={() => void handleCreate("space")}
+      >
+        Nový Space
+      </button>
       {error && <p className="note error">{error}</p>}
-
-      <p className="note">
-        Moje UID (sdílej protistraně): <code>{props.uid}</code>
-      </p>
     </section>
   );
 }

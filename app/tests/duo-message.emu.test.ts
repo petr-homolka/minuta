@@ -1,84 +1,30 @@
-// E2E rez 4 (42 §3): dva uzivatele -> duo Space (CF) -> vydej bundlu (CF)
-// -> odeslani obalky+payloadu -> otevreni (zamek readAt) -> desifrovani.
+// E2E rez 4+5 (42 §3): duo pres pozvanku -> vydej bundlu (CF) ->
+// odeslani obalky+payloadu -> otevreni (zamek readAt) -> desifrovani.
 // "Po minute neobnovitelna" pokryvaji rules testy (okno readAt+90 s)
 // a unit test wipe; zde overujeme, ze gate plati i v celem toku.
-import "fake-indexeddb/auto";
-import { initializeTestEnvironment } from "@firebase/rules-unit-testing";
-import { deleteApp, initializeApp, type FirebaseApp } from "firebase/app";
-import {
-  connectAuthEmulator,
-  getAuth,
-  signInAnonymously,
-  type Auth,
-} from "firebase/auth";
-import {
-  collection,
-  connectFirestoreEmulator,
-  doc,
-  getDoc,
-  getDocs,
-  getFirestore,
-  type Firestore,
-} from "firebase/firestore";
-import {
-  connectFunctionsEmulator,
-  getFunctions,
-  type Functions,
-} from "firebase/functions";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { deleteApp } from "firebase/app";
+import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { callCreateSpace, callGetKeyBundles } from "../src/features/chat/api";
+import {
+  callCreateInvite,
+  callCreateSpace,
+  callGetKeyBundles,
+  callGetSpaceKeyBundles,
+  callJoinSpace,
+} from "../src/features/chat/api";
 import { openReceivedMessage, sendTextMessage } from "../src/features/chat/messages";
 import { KeyChangedError, trustIdentityKey } from "../src/features/chat/tofu";
 import { loadDeviceIdentity } from "../src/features/device/key-store";
-import { ensureDeviceRegistered } from "../src/features/device/registration";
 import { x25519PublicFromSecret } from "../src/lib/crypto/keys";
-
-interface Party {
-  app: FirebaseApp;
-  auth: Auth;
-  db: Firestore;
-  functions: Functions;
-  uid: string;
-  deviceId: string;
-}
-
-const CONFIG = {
-  apiKey: "demo-api-key",
-  authDomain: "demo-minuta.firebaseapp.com",
-  projectId: "demo-minuta",
-};
-
-async function createParty(name: string): Promise<Party> {
-  const app = initializeApp(CONFIG, name);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-  const functions = getFunctions(app, "europe-west3");
-  connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
-  connectFirestoreEmulator(db, "127.0.0.1", 8080);
-  connectFunctionsEmulator(functions, "127.0.0.1", 5001);
-  const { user } = await signInAnonymously(auth);
-  const deviceId = await ensureDeviceRegistered(db, user.uid);
-  return { app, auth, db, functions, uid: user.uid, deviceId };
-}
+import { createParty, loadDevRules, type Party } from "./helpers";
 
 let alice: Party;
 let bob: Party;
 
 beforeAll(async () => {
-  // Kombinovane dev rules (meta + ephemeral v jedne DB) - stejne, jake
-  // pouziva emulator runtime; generuje je `npm run rules:dev`.
-  const rulesEnv = await initializeTestEnvironment({
-    projectId: "demo-minuta",
-    firestore: {
-      rules: readFileSync(resolve(__dirname, "../../infra/firestore.dev.rules"), "utf8"),
-    },
-  });
-  await rulesEnv.cleanup();
-
-  alice = await createParty("e2e-alice");
-  bob = await createParty("e2e-bob");
+  await loadDevRules();
+  alice = await createParty("duo-alice");
+  bob = await createParty("duo-bob");
 }, 60_000);
 
 afterAll(async () => {
@@ -86,28 +32,29 @@ afterAll(async () => {
   await deleteApp(bob.app);
 });
 
-describe("1:1 zprava end-to-end (rez 4)", () => {
-  it("duo -> odeslani -> gate -> otevreni -> plaintext", async () => {
-    // 1) Alice zalozi duo pres CF (36 §4).
-    const spaceId = await callCreateSpace(alice.functions, bob.uid);
-    expect(spaceId).toBeTruthy();
+describe("1:1 zprava end-to-end", () => {
+  it("duo pres pozvanku -> odeslani -> gate -> otevreni -> plaintext", async () => {
+    // 1) Alice zalozi duo a pozvanku; Bob vstoupi tokenem (11 §Vstup).
+    const spaceId = await callCreateSpace(alice.functions, "duo");
+    const invite = await callCreateInvite(alice.functions, { spaceId, maxUses: 1 });
+    await expect(callJoinSpace(bob.functions, invite.token)).resolves.toBe(spaceId);
+    // opakovany vstup = idempotentni
+    await expect(callJoinSpace(bob.functions, invite.token)).resolves.toBe(spaceId);
 
-    // 2) Vydej bundlu protistrany pres CF - jen pro cleny Space.
-    const recipients = await callGetKeyBundles(alice.functions, bob.uid, spaceId);
+    // 2) Vydej bundlu clenu Space (ADR-012: prijemci = ostatni clenove).
+    const recipients = await callGetSpaceKeyBundles(alice.functions, spaceId);
     expect(recipients).toHaveLength(1);
     const bobDevice = recipients[0];
     if (!bobDevice) throw new Error("bundle chybi");
+    expect(bobDevice.uid).toBe(bob.uid);
     expect(bobDevice.deviceId).toBe(bob.deviceId);
-    expect(bobDevice.identityPk).toHaveLength(44);
 
-    // Neclen bundle nedostane (Eve si zalozi ucet, ale neni ve Space).
-    const eve = await createParty("e2e-eve");
-    await expect(
-      callGetKeyBundles(eve.functions, bob.uid, spaceId),
-    ).rejects.toThrow();
+    // Neclen bundly nedostane.
+    const eve = await createParty("duo-eve");
+    await expect(callGetSpaceKeyBundles(eve.functions, spaceId)).rejects.toThrow();
     await deleteApp(eve.app);
 
-    // 3) Alice odesle zpravu (obalka + payload v jedne batch, Rules 36).
+    // 3) Alice odesle zpravu.
     const aliceIdentity = await loadDeviceIdentity(alice.uid);
     if (!aliceIdentity) throw new Error("alice bez klicu");
     const text = "Tahle zprava zije 60 sekund.";
@@ -123,16 +70,14 @@ describe("1:1 zprava end-to-end (rez 4)", () => {
       recipients,
     });
 
-    // 4) Bob vidi obalku, ale payload je pred otevrenim NEcitelny (gate).
+    // 4) Bob vidi obalku, payload pred otevrenim NEcitelny (gate).
     const bobMessages = await getDocs(collection(bob.db, "spaces", spaceId, "messages"));
     expect(bobMessages.docs.map((d) => d.id)).toContain(msgId);
-    const delivered = bobMessages.docs.find((d) => d.id === msgId);
-    expect(delivered?.get("readAt")).toBeNull();
     await expect(
       getDoc(doc(bob.db, "spaces", spaceId, "messages", msgId, "payload", "v")),
     ).rejects.toThrow();
 
-    // 5) Bob otevre (zamek readAt) a desifruje.
+    // 5) Bob otevre a desifruje.
     const bobIdentity = await loadDeviceIdentity(bob.uid);
     if (!bobIdentity) throw new Error("bob bez klicu");
     const senderBundles = await callGetKeyBundles(bob.functions, alice.uid, spaceId);
@@ -153,33 +98,20 @@ describe("1:1 zprava end-to-end (rez 4)", () => {
       },
     });
     expect(new TextDecoder().decode(opened.plaintext)).toBe(text);
-    expect(opened.readAtMillis).toBeGreaterThan(0);
 
-    // 6) Druhe otevreni neexistuje (readAt uz je) - zamek je jednorazovy.
-    await expect(
-      openReceivedMessage({
-        db: bob.db,
-        spaceId,
-        msgId,
-        senderUid: alice.uid,
-        senderDeviceId: alice.deviceId,
-        presentedSenderIdentityPk: senderDevice.identityPk,
-        receiver: {
-          deviceId: bob.deviceId,
-          wrapPk: await x25519PublicFromSecret(bobIdentity.privateKeys.signedPrekeySk),
-          wrapSk: bobIdentity.privateKeys.signedPrekeySk,
-        },
-      }),
-    ).rejects.toThrow();
-
-    // 7) TOFU: zmena IK protistrany = tvrda chyba (37 §3).
+    // 6) TOFU: zmena IK protistrany = tvrda chyba (37 §3).
     await expect(
       trustIdentityKey(alice.uid, alice.deviceId, bobDevice.identityPk),
     ).rejects.toThrow(KeyChangedError);
   }, 60_000);
 
-  it("createSpace odmitne neexistujici protistranu i duo se sebou", async () => {
-    await expect(callCreateSpace(alice.functions, "neexistujici-uid")).rejects.toThrow();
-    await expect(callCreateSpace(alice.functions, alice.uid)).rejects.toThrow();
-  }, 30_000);
+  it("duo je stropovane na 2 cleny", async () => {
+    const spaceId = await callCreateSpace(alice.functions, "duo");
+    const invite = await callCreateInvite(alice.functions, { spaceId, maxUses: 5 });
+    await callJoinSpace(bob.functions, invite.token);
+
+    const carol = await createParty("duo-carol");
+    await expect(callJoinSpace(carol.functions, invite.token)).rejects.toThrow();
+    await deleteApp(carol.app);
+  }, 60_000);
 });

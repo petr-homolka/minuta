@@ -15,12 +15,14 @@
   "dependencies": {
     "firebase": "^11.1.0",
     "libsodium-wrappers": "^0.7.15",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^4.0.0",
     "@types/libsodium-wrappers": "^0.7.14",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^18.3.14",
     "@types/react-dom": "^18.3.2",
     "@vitejs/plugin-react": "^4.3.4",

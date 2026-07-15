@@ -1,5 +1,5 @@
-// Mapa: volani Cloud Functions `/v1` (18 §2). Instance functions/db se
-// predavaji parametrem (testovatelnost proti emulatoru s vice ucty).
+// Mapa: volani Cloud Functions `/v1` (18 §2). Instance functions se
+// predava parametrem (testovatelnost proti emulatoru s vice ucty).
 import { httpsCallable, type Functions } from "firebase/functions";
 import type { RecipientDevice } from "../../lib/crypto/message";
 
@@ -7,15 +7,36 @@ export interface KeyBundleDevice extends RecipientDevice {
   kxPk: string;
 }
 
+export interface SpaceRecipient extends KeyBundleDevice {
+  uid: string;
+}
+
+export interface CreatedInvite {
+  token: string;
+  tokenHash: string;
+  expireAtMillis: number;
+  maxUses: number;
+}
+
+export interface InvitePreview {
+  type: string;
+  memberCount: number;
+  spaceExpireAtMillis: number | null;
+  requiresPassword: boolean;
+}
+
+function call<Req, Res>(functions: Functions, name: string) {
+  return httpsCallable<Req, Res>(functions, name);
+}
+
 export async function callCreateSpace(
   functions: Functions,
-  peerUid: string,
+  type: "duo" | "space",
 ): Promise<string> {
-  const call = httpsCallable<{ peerUid: string }, { spaceId: string }>(
+  const result = await call<{ type: string }, { spaceId: string }>(
     functions,
     "createSpace",
-  );
-  const result = await call({ peerUid });
+  )({ type });
   return result.data.spaceId;
 }
 
@@ -24,10 +45,69 @@ export async function callGetKeyBundles(
   uid: string,
   spaceId: string,
 ): Promise<KeyBundleDevice[]> {
-  const call = httpsCallable<
+  const result = await call<
     { uid: string; spaceId: string },
     { devices: KeyBundleDevice[] }
-  >(functions, "getKeyBundles");
-  const result = await call({ uid, spaceId });
+  >(functions, "getKeyBundles")({ uid, spaceId });
   return result.data.devices;
+}
+
+export async function callGetSpaceKeyBundles(
+  functions: Functions,
+  spaceId: string,
+): Promise<SpaceRecipient[]> {
+  const result = await call<{ spaceId: string }, { devices: SpaceRecipient[] }>(
+    functions,
+    "getSpaceKeyBundles",
+  )({ spaceId });
+  return result.data.devices;
+}
+
+export async function callCreateInvite(
+  functions: Functions,
+  input: {
+    spaceId: string;
+    expiresInMinutes?: number;
+    maxUses?: number;
+    password?: string;
+  },
+): Promise<CreatedInvite> {
+  const result = await call<typeof input, CreatedInvite>(
+    functions,
+    "createInvite",
+  )(input);
+  return result.data;
+}
+
+export async function callPreviewInvite(
+  functions: Functions,
+  token: string,
+): Promise<InvitePreview> {
+  const result = await call<{ token: string }, InvitePreview>(
+    functions,
+    "previewInvite",
+  )({ token });
+  return result.data;
+}
+
+export async function callJoinSpace(
+  functions: Functions,
+  token: string,
+  password?: string,
+): Promise<string> {
+  const result = await call<
+    { token: string; password?: string },
+    { spaceId: string }
+  >(functions, "joinSpace")({ token, ...(password ? { password } : {}) });
+  return result.data.spaceId;
+}
+
+export async function callRevokeInvite(
+  functions: Functions,
+  tokenHash: string,
+): Promise<void> {
+  await call<{ tokenHash: string }, { revoked: boolean }>(
+    functions,
+    "revokeInvite",
+  )({ tokenHash });
 }

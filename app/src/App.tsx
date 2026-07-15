@@ -7,8 +7,22 @@ import { completeMagicLinkIfPresent } from "./features/auth/magic-link";
 import { signOutUser, useAuth } from "./features/auth/useAuth";
 import { ChatHome } from "./features/chat/ChatHome";
 import { ChatScreen } from "./features/chat/ChatScreen";
+import { JoinInvite } from "./features/chat/JoinInvite";
 import { ensureDeviceRegistered } from "./features/device/registration";
 import { metaDb } from "./lib/firebase";
+
+/** Precte token pozvanky z fragmentu (#join=...) bez vedlejsiho ucinku. */
+function readJoinToken(): string | null {
+  const match = /^#join=([A-Za-z0-9_-]{16,128})$/.exec(window.location.hash);
+  return match?.[1] ?? null;
+}
+
+/** Smaze pozvanku z URL (az kdyz ji uzivatel vyresil - StrictMode-safe). */
+function clearJoinToken(): void {
+  if (window.location.hash.startsWith("#join=")) {
+    window.history.replaceState(null, "", "/");
+  }
+}
 
 type DeviceState =
   | { status: "pending" }
@@ -19,12 +33,26 @@ export function App() {
   const { user, loading } = useAuth();
   const [device, setDevice] = useState<DeviceState>({ status: "pending" });
   const [openSpaceId, setOpenSpaceId] = useState<string | null>(null);
+  const [joinToken, setJoinToken] = useState<string | null>(null);
 
   useEffect(() => {
+    setJoinToken(readJoinToken());
     completeMagicLinkIfPresent().catch(() => {
       // Neplatny/prosly odkaz - uzivatel proste zustane na prihlaseni.
     });
+    // Zachyt i pozvanku otevrenou pri uz bezici aplikaci (zmena #hash
+    // nereloaduje stranku, takze mount effect by ji minul).
+    const onHashChange = () => setJoinToken(readJoinToken());
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
+
+  // Zmena uctu (vc. odhlaseni) resetuje navigaci - stav jednoho uzivatele
+  // nesmi protect k druhemu (stale openSpaceId po prihlaseni jineho uctu).
+  const uid = user?.uid ?? null;
+  useEffect(() => {
+    setOpenSpaceId(null);
+  }, [uid]);
 
   useEffect(() => {
     if (!user) {
@@ -59,7 +87,20 @@ export function App() {
         <p className="note error">Registrace zařízení selhala — obnov stránku.</p>
       )}
       {device.status === "ready" &&
-        (openSpaceId ? (
+        (joinToken ? (
+          <JoinInvite
+            token={joinToken}
+            onJoined={(spaceId) => {
+              clearJoinToken();
+              setJoinToken(null);
+              setOpenSpaceId(spaceId);
+            }}
+            onDismiss={() => {
+              clearJoinToken();
+              setJoinToken(null);
+            }}
+          />
+        ) : openSpaceId ? (
           <ChatScreen
             uid={user.uid}
             spaceId={openSpaceId}

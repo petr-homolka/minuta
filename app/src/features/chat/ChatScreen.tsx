@@ -1,12 +1,12 @@
 // Mapa: obrazovka jednoho Space - listener obalek, odeslani, otevreni
 // (zamek 34 §2) a 60s odpocet s wipe (useBurnCountdown). Stavy zprav
 // dle 34 §4; plny vizual "Sklo a cas" (43) prijde v rezu 9.
-import { collection, getDocs } from "firebase/firestore";
 import { useState, type FormEvent } from "react";
 import { x25519PublicFromSecret } from "../../lib/crypto/keys";
 import { ephemeralDb, functions } from "../../lib/firebase";
 import { loadDeviceIdentity, type DeviceIdentity } from "../device/key-store";
-import { callGetKeyBundles } from "./api";
+import { callGetKeyBundles, callGetSpaceKeyBundles } from "./api";
+import { InvitePanel } from "./InvitePanel";
 import { MAX_TEXT_LENGTH, openReceivedMessage, sendTextMessage } from "./messages";
 import { useBurnCountdown } from "./useBurnCountdown";
 import { useMessages, type MessageMeta } from "./useChatData";
@@ -18,6 +18,7 @@ export function ChatScreen(props: { uid: string; spaceId: string; onBack: () => 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openedMsgId, setOpenedMsgId] = useState<string | null>(null);
+  const [showInvite, setShowInvite] = useState(false);
 
   async function requireIdentity(): Promise<DeviceIdentity> {
     const identity = await loadDeviceIdentity(props.uid);
@@ -33,8 +34,11 @@ export function ChatScreen(props: { uid: string; spaceId: string; onBack: () => 
     setError(null);
     try {
       const identity = await requireIdentity();
-      const peerUid = await otherMemberUid(props.uid, props.spaceId);
-      const recipients = await callGetKeyBundles(functions, peerUid, props.spaceId);
+      // Prijemci = vsechna aktivni zarizeni vsech ostatnich clenu (ADR-012).
+      const recipients = await callGetSpaceKeyBundles(functions, props.spaceId);
+      if (recipients.length === 0) {
+        throw new Error("Ve Space zatim nikdo neni.");
+      }
       await sendTextMessage({
         db: ephemeralDb,
         spaceId: props.spaceId,
@@ -96,8 +100,16 @@ export function ChatScreen(props: { uid: string; spaceId: string; onBack: () => 
     <section>
       <button type="button" className="secondary" onClick={props.onBack}>
         ← Zpět
+      </button>{" "}
+      <button
+        type="button"
+        className="secondary"
+        onClick={() => setShowInvite((v) => !v)}
+      >
+        {showInvite ? "Skrýt pozvánku" : "Pozvat"}
       </button>
       <h2>Space {props.spaceId.slice(0, 8)}…</h2>
+      {showInvite && <InvitePanel spaceId={props.spaceId} />}
 
       <ul className="messages">
         {messages.map((m) => (
@@ -162,20 +174,20 @@ function MessageRow(props: {
     return <span className="note">🔥 shořelo</span>;
   }
   if (message.readAt) {
-    return <span className="note">otevřeno jinde / shořelo</span>;
+    // Otevrel jiny clen/zarizeni - v okne 90 s lze jeste cist (34 §5);
+    // cas tu slouzi jen vykresleni, branou zustavaji Rules.
+    const windowOpen = message.readAt.toMillis() + 90_000 > Date.now();
+    return windowOpen ? (
+      <button type="button" disabled={props.busy} onClick={props.onOpen}>
+        ✉️ Otevřít (už hoří jinde)
+      </button>
+    ) : (
+      <span className="note">🔥 shořelo</span>
+    );
   }
   return (
     <button type="button" disabled={props.busy} onClick={props.onOpen}>
       ✉️ Otevřít (spustí 60 s)
     </button>
   );
-}
-
-async function otherMemberUid(me: string, spaceId: string): Promise<string> {
-  const members = await getDocs(collection(ephemeralDb, "spaces", spaceId, "members"));
-  const other = members.docs.map((d) => d.id).find((uid) => uid !== me);
-  if (!other) {
-    throw new Error("Duo nema protistranu.");
-  }
-  return other;
 }

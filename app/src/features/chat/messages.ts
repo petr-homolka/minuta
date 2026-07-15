@@ -91,10 +91,17 @@ export async function openReceivedMessage(input: {
 
   const messageRef = doc(input.db, "spaces", input.spaceId, "messages", input.msgId);
   // Zamek (34 §2): jednorazovy prechod readAt null -> request.time.
-  await updateDoc(messageRef, {
-    readAt: serverTimestamp(),
-    expireAt: serverTimestamp(), // TTL pojistka, koridor ADR-011
-  });
+  // Soubeh/vice ctenaru (34 §5): prvni update vyhrava; ostatni ctou
+  // payload v temze okne - selhani updatu proto neni chyba, brana je
+  // vyhradne na cteni payloadu (Rules).
+  try {
+    await updateDoc(messageRef, {
+      readAt: serverTimestamp(),
+      expireAt: serverTimestamp(), // TTL pojistka, koridor ADR-011
+    });
+  } catch {
+    // uz otevreno - zkusime cist v bezicim okne
+  }
 
   const [messageSnap, payloadSnap] = await Promise.all([
     getDoc(messageRef),
