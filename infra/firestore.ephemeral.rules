@@ -80,5 +80,12 @@ service cloud.firestore {
     match /invites/{tokenHash} {
       allow read, write: if false;   // vyhradne Cloud Functions (12)
     }
+
+    // Collection-group "moje Spaces" (35 §5): kazdy cte VYHRADNE sva
+    // vlastni clenstvi (dotaz where uid == request.auth.uid je Rules
+    // dokazatelny). Cizi clenstvi tudy nikdy nejdou.
+    match /{path=**}/members/{memberUid} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+    }
   }
 }

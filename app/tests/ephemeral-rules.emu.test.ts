@@ -9,14 +9,17 @@ import {
 } from "@firebase/rules-unit-testing";
 import {
   collection,
+  collectionGroup,
   deleteDoc,
   doc,
   getDoc,
   getDocs,
+  query,
   serverTimestamp,
   setDoc,
   Timestamp,
   updateDoc,
+  where,
 } from "firebase/firestore";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -54,8 +57,8 @@ async function seed(messages: { id: string; readAt: Timestamp | null }[] = []) {
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
     await setDoc(doc(db, spacePath), { type: "duo", memberCount: 2 });
-    await setDoc(doc(db, `${spacePath}/members/${ALICE}`), { role: "owner" });
-    await setDoc(doc(db, `${spacePath}/members/${BOB}`), { role: "member" });
+    await setDoc(doc(db, `${spacePath}/members/${ALICE}`), { uid: ALICE, role: "owner" });
+    await setDoc(doc(db, `${spacePath}/members/${BOB}`), { uid: BOB, role: "member" });
     for (const m of messages) {
       await setDoc(doc(db, msgPath(m.id)), {
         envelope: envelopeStub(),
@@ -165,6 +168,20 @@ describe("clen: cteni a odeslani (36 §2)", () => {
     await assertFails(
       setDoc(doc(db, `${spacePath}/members/${EVE}`), { role: "member" }),
     );
+  });
+});
+
+describe("collection-group 'moje Spaces' (35 §5)", () => {
+  it("vlastni clenstvi lze dotazovat, cizi ne", async () => {
+    await seed();
+    const db = env.authenticatedContext(BOB).firestore();
+    await assertSucceeds(
+      getDocs(query(collectionGroup(db, "members"), where("uid", "==", BOB))),
+    );
+    await assertFails(
+      getDocs(query(collectionGroup(db, "members"), where("uid", "==", ALICE))),
+    );
+    await assertFails(getDocs(query(collectionGroup(db, "members"))));
   });
 });
 

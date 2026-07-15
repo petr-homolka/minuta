@@ -4,8 +4,9 @@ Aktualizováno: 2026-07-14
 
 ## Fáze
 
-**Řezy 1–3 (42 §3) HOTOVY:** Skelet + Auth · Krypto jádro · Data model
-+ Rules `ephemeral`. Repo: https://github.com/petr-homolka/minuta
+**Řezy 1–4 (42 §3) HOTOVY:** Skelet + Auth · Krypto jádro · Data model
++ Rules `ephemeral` · **1:1 zpráva end-to-end**.
+Repo: https://github.com/petr-homolka/minuta
 
 ## Co funguje (ověřeno testy i ručně v prohlížeči)
 
@@ -32,10 +33,17 @@ Aktualizováno: 2026-07-14
   XChaCha20-Poly1305 (AD = kanonická hlavička), wrap MK `crypto_box_seal`
   na SPK (ADR-010), obálka v1 podepsaná IK, `sealMessage`/`openMessage`
   mezi zařízeními, wipe (memzero). OPK cílení až s CF výdejem (řez 4).
-- **Testy:** `npm test` — 21 unit (vektory RFC 8032, RFC 7748,
-  draft-irtf-cfrg-xchacha A.3.1; fuzz obálek; roundtrip 2 zařízení);
-  `npm run test:emu` — 17 integračních (Rules meta+ephemeral vč.
-  časového gate, registrace zařízení). Lint i typecheck zelené.
+- **1:1 zpráva end-to-end (řez 4):** Cloud Functions `createSpace` (duo)
+  a `getKeyBundles` (výdej bundlů jen členům Space, 36 §4); klient
+  `features/chat/` — odeslání (obálka+payload batch), realtime listener,
+  otevření (zámek `readAt`), TOFU známých IK (37 §3, změna = chyba),
+  odpočet 60 s kotvený k potvrzení zápisu → wipe. Ověřeno v prohlížeči:
+  zpráva doručena, otevřena, dohořela („shořelo").
+- **Testy:** `npm test` — 23 unit (vektory RFC 8032, RFC 7748,
+  draft-irtf-cfrg-xchacha A.3.1; fuzz obálek; roundtrip 2 zařízení;
+  UUID v7); `npm run test:emu` — 20 integračních (Rules meta+ephemeral
+  vč. časového gate a collection-group „moje Spaces", registrace,
+  E2E duo přes skutečné CF v emulátoru). Lint i typecheck zelené.
 
 ## Reálný Firebase projekt (dev)
 
@@ -49,13 +57,19 @@ Aktualizováno: 2026-07-14
 
 ## Známé odchylky / TODO
 
-- Firestore emulátor neumí dvě databáze → řez 1 běží jen s `meta` =
-  `(default)`; `ephemeral` (ADR-007) se v emulátoru vyřeší v řezu 3 —
-  varianty v `infra/README.md`. Produkce = vždy dvě pojmenované DB.
-- Service Worker / instalovatelnost PWA: zatím jen manifest, SW až
-  v pozdějším řezu (UX pass, řez 9).
+- Firestore emulátor neumí dvě databáze → jednodatabázová prostředí
+  (emulátor, minuta-dev) používají **generované kombinované Rules**
+  (`npm run rules:dev` → `infra/firestore.dev.rules`); zdroj pravdy jsou
+  per-DB soubory. Produkce = vždy dvě pojmenované DB (ADR-007).
+- **Cloud Functions nejsou nasazené na minuta-dev** (Spark neumožňuje
+  deploy CF; potřeba Blaze) → chat na web.app zatím nefunguje, jen
+  lokálně proti emulátorům. Auth + registrace zařízení na webu fungují.
+- OPK cílení (jednorázový výdej s `consumed`) až v řezu 5 s CF; zatím SPK.
+- Offline outbox (08 §2) zatím není; UI banner key change (37 §3) — teď
+  tvrdá chyba; multi-device otevření „otevřeno jinde" jen hrubě.
+- Service Worker / instalovatelnost PWA: až UX pass (řez 9).
 - `design/` čeká na zkopírování HTML artefaktů (odkazy níže).
-- Bundle ~1,3 MB (Firebase SDK + libsodium) — code-split až při UX passu.
+- Bundle ~1,4 MB (Firebase SDK + libsodium) — code-split až při UX passu.
 
 ## Interaktivní dema (artefakty ze specifikace)
 
@@ -65,7 +79,6 @@ Aktualizováno: 2026-07-14
 
 ## Další krok
 
-**Řez 4 (42 §3): 1:1 zpráva end-to-end** — Cloud Function pro založení
-duo Space (36 §4), odeslání (obálka+payload), listener, otevření
-(readAt), dešifrování, odpočet 60 s → wipe (08, 34). K tomu kombinovaný
-dev soubor Rules pro emulátor (infra/README.md).
+**Řez 5 (42 §3): Space + pozvánky + QR** — vícečlenný Space, sender keys
++ rotace (33 §4), join přes token/QR (11, 12), jednorázový výdej OPK.
+Zvážit: Blaze na minuta-dev kvůli nasazení CF (chat na web.app).

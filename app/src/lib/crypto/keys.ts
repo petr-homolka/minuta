@@ -71,6 +71,15 @@ export async function generateDeviceKeys(): Promise<GeneratedDeviceKeys> {
   };
 }
 
+/** Odvodi verejny X25519 klic z privatniho (crypto_scalarmult_base). */
+export async function x25519PublicFromSecret(secretKey: Uint8Array): Promise<string> {
+  const sodium = await getSodium();
+  return sodium.to_base64(
+    sodium.crypto_scalarmult_base(secretKey),
+    sodium.base64_variants.ORIGINAL,
+  );
+}
+
 /**
  * Overeni podpisu SPK proti IK odesilatele - povinny krok pred pouzitim
  * ciziho bundle (33 §2 krok 1). Vraci false i pro poskozeny vstup.

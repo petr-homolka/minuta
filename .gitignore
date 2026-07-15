@@ -27,3 +27,6 @@ Thumbs.db
 # Lokalni nastaveni nastroju
 .claude/settings.local.json
 .tmp/
+
+# Generovane soubory
+infra/firestore.dev.rules

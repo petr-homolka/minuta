@@ -1,6 +1,6 @@
 {
   "firestore": {
-    "rules": "infra/firestore.meta.rules"
+    "rules": "infra/firestore.dev.rules"
   },
   "hosting": {
     "public": "app/dist",

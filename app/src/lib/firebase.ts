@@ -8,6 +8,7 @@
 import { initializeApp } from "firebase/app";
 import { connectAuthEmulator, getAuth } from "firebase/auth";
 import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
+import { connectFunctionsEmulator, getFunctions } from "firebase/functions";
 
 const cloudApiKey = import.meta.env.VITE_FIREBASE_API_KEY;
 const useCloud = typeof cloudApiKey === "string" && cloudApiKey.length > 0;
@@ -32,8 +33,13 @@ const app = initializeApp(
 
 export const auth = getAuth(app);
 export const metaDb = getFirestore(app);
+// V emulatoru i minuta-dev zije `ephemeral` v teze DB (infra/README.md);
+// oddeleny export drzi hranici ADR-007 v kodu uz ted.
+export const ephemeralDb = metaDb;
+export const functions = getFunctions(app, "europe-west3");
 
 if (!useCloud) {
   connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
   connectFirestoreEmulator(metaDb, "127.0.0.1", 8080);
+  connectFunctionsEmulator(functions, "127.0.0.1", 5001);
 }
