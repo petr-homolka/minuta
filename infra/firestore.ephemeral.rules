@@ -1,12 +1,84 @@
 rules_version = '2';
 
-// Rules pro databazi `ephemeral` (35 §3, 36 §2).
-// Rez 1: default deny vsude. Spaces/messages/payload gate pres readAt
-// prijde v rezu 3 dle 42 §3 a 36 §2.
+// Rules pro databazi `ephemeral` (35 §3, 36 §2, casovy mechanismus 34).
+// Default deny; operace s vedlejsimi ucinky (zalozeni Space, join, kick,
+// pozvanky) jdou vyhradne pres Cloud Functions (36 §4).
+//
+// BEZPECNOSTNI BRANA obsahu je vyhradne serverovy cas (ADR-008):
+//   payload lze cist JEN kdyz readAt != null a request.time < readAt + 90 s.
+// `expireAt` je pouze ukliidove TTL pole (34 §3) - proto ADR-011 povoluje
+// koridor misto presne rovnosti request.time + offset (sentinel serverTimestamp
+// umi vyjadrit jen presne request.time; offset klient vyrobit nemuze).
 service cloud.firestore {
   match /databases/{db}/documents {
-    match /{document=**} {
-      allow read, write: if false;
+
+    function signedIn() { return request.auth != null; }
+    function isMember(spaceId) {
+      return exists(/databases/$(db)/documents/spaces/$(spaceId)/members/$(request.auth.uid));
+    }
+    function messageData(spaceId, msgId) {
+      return get(/databases/$(db)/documents/spaces/$(spaceId)/messages/$(msgId)).data;
+    }
+
+    match /spaces/{spaceId} {
+      allow get: if signedIn() && isMember(spaceId);
+      allow list: if false;                     // zadny vypis cizich Spaces
+      allow create, update, delete: if false;   // jen Cloud Functions
+
+      match /members/{uid} {
+        allow read: if signedIn() && isMember(spaceId);
+        allow write: if false;                  // join/leave/kick jen CF
+      }
+
+      match /messages/{msgId} {
+        allow read: if signedIn() && isMember(spaceId);
+
+        // Odeslani: jen clen, jen svym jmenem, cas serverovy (34 §1).
+        // expireAt = TTL pojistka ~24 h (koridor 23-25 h, ADR-011).
+        allow create: if signedIn() && isMember(spaceId)
+          && request.resource.data.keys().hasOnly(
+               ['envelope', 'senderUid', 'senderDeviceId', 'createdAt', 'readAt', 'expireAt'])
+          && request.resource.data.envelope is map
+          && request.resource.data.senderUid == request.auth.uid
+          && request.resource.data.senderDeviceId is string
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.readAt == null
+          && request.resource.data.expireAt > request.time + duration.value(23, 'h')
+          && request.resource.data.expireAt < request.time + duration.value(25, 'h');
+
+        // OTEVRENI (34 §2): jediny povoleny update, jednorazovy prechod
+        // null -> request.time, a jen prijemcem (ne odesilatelem).
+        // Klient posila readAt i expireAt jako serverTimestamp();
+        // koridor expireAt <= +120 s je TTL pojistka (ADR-011), branou
+        // zustava vypocet readAt + 90 s pri cteni payloadu nize.
+        allow update: if signedIn() && isMember(spaceId)
+          && resource.data.readAt == null
+          && request.auth.uid != resource.data.senderUid
+          && request.resource.data.diff(resource.data)
+               .affectedKeys().hasOnly(['readAt', 'expireAt'])
+          && request.resource.data.readAt == request.time
+          && request.resource.data.expireAt >= request.time
+          && request.resource.data.expireAt <= request.time + duration.value(120, 's');
+
+        // Unsend / burn now: odesilatel maze vlastni zpravu (N7).
+        allow delete: if signedIn() && request.auth.uid == resource.data.senderUid;
+
+        // OBSAH - gate pres readAt (34 §2-3): cist jen v okne 90 s,
+        // nezavisle na fyzicke existenci dokumentu.
+        match /payload/{p} {
+          allow read: if signedIn() && isMember(spaceId)
+            && messageData(spaceId, msgId).readAt != null
+            && request.time < messageData(spaceId, msgId).readAt + duration.value(90, 's');
+          allow create: if signedIn() && isMember(spaceId);  // spolu s obalkou
+          allow update: if false;
+          // Burn: zuzeni navrhu 36 §2 na cleny (necheme cizi DoS mazanim).
+          allow delete: if signedIn() && isMember(spaceId);
+        }
+      }
+    }
+
+    match /invites/{tokenHash} {
+      allow read, write: if false;   // vyhradne Cloud Functions (12)
     }
   }
 }

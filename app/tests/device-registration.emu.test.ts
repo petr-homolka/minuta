@@ -2,6 +2,9 @@
 // zarizeni -> verejny bundle v `meta` DB. Bezi proti Auth + Firestore
 // emulatoru; IndexedDB v Node zajistuje fake-indexeddb.
 import "fake-indexeddb/auto";
+import { initializeTestEnvironment } from "@firebase/rules-unit-testing";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { deleteApp, initializeApp } from "firebase/app";
 import {
   connectAuthEmulator,
@@ -29,7 +32,20 @@ const app = initializeApp({
 const auth = getAuth(app);
 const metaDb = getFirestore(app);
 
-beforeAll(() => {
+beforeAll(async () => {
+  // Testovaci soubory si nahravaji ruzna Rules (meta vs. ephemeral) -
+  // nahrajeme si vlastni, at nezalezi na poradi souboru.
+  const rulesEnv = await initializeTestEnvironment({
+    projectId: "demo-minuta",
+    firestore: {
+      rules: readFileSync(
+        resolve(__dirname, "../../infra/firestore.meta.rules"),
+        "utf8",
+      ),
+    },
+  });
+  await rulesEnv.cleanup();
+
   connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
   connectFirestoreEmulator(metaDb, "127.0.0.1", 8080);
 });

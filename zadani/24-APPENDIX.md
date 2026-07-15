@@ -64,6 +64,7 @@ Jednotný referenční přehled pro Trust & Safety. Zdroj pravdy a detaily:
 | ADR-008 | Autorita času výhradně serverová | 34 |
 | ADR-009 | EU datová rezidence: **europe-west3 (Frankfurt)** pro Firestore, Storage i Functions | 05 §10, 35 |
 | ADR-010 | Upřesnění ADR-002: wrap MK = přímo `crypto_box_seal` na SPK/OPK (efemérní klíč uvnitř každého wrapu; obálka v1 nemá samostatné `ephPub`) — nejauditovatelnější varianta „seal-ekvivalentu" z 33 §2 | 33 §2, kód `app/src/lib/crypto/` |
+| ADR-011 | Upřesnění 36 §2: klient neumí zapsat `request.time + offset` (sentinel = jen přesný `request.time`), proto `expireAt` (čistě TTL pojistka, 34 §3) používá koridor — create: (23 h, 25 h), otevření: ⟨0, 120 s⟩ se `serverTimestamp()`. Bezpečnostní brána obsahu zůstává výhradně `request.time < readAt + 90 s` v Rules (ADR-008 nedotčen) | 34, 36, `infra/firestore.ephemeral.rules` |
 
 ## Budoucí přílohy
 

@@ -4,8 +4,8 @@ Aktualizováno: 2026-07-14
 
 ## Fáze
 
-**Řezy 1–2 (42 §3) HOTOVY:** Skelet + Auth · Krypto jádro.
-Repo: https://github.com/petr-homolka/minuta
+**Řezy 1–3 (42 §3) HOTOVY:** Skelet + Auth · Krypto jádro · Data model
++ Rules `ephemeral`. Repo: https://github.com/petr-homolka/minuta
 
 ## Co funguje (ověřeno testy i ručně v prohlížeči)
 
@@ -21,15 +21,21 @@ Repo: https://github.com/petr-homolka/minuta
   bundle v `meta` DB (`users/{uid}/devices/{deviceId}` + `prekeys/*`).
 - **Rules `meta` (36 §3):** jen vlastní data; update publikovaných klíčů
   zakázán (BM-2); revokace jen `revoked:true`; prekeys create-only;
-  `tier` z klienta nezapisovatelný. `ephemeral` rules = default deny.
+  `tier` z klienta nezapisovatelný.
+- **Rules `ephemeral` (řez 3, 36 §2 + 34):** default deny; zprávu odešle
+  jen člen svým jménem se serverovým časem; otevření = jediný povolený
+  update (null→`request.time`, jen příjemcem, jednorázově); payload
+  čitelný VÝHRADNĚ v okně `readAt+90 s` (počítáno v Rules — invariant
+  42 §5.3); unsend jen odesílatel; spaces/members/invites jen přes CF.
+  `expireAt` (TTL pojistka) přes koridor — ADR-011.
 - **Krypto jádro (řez 2, 33 §2–3):** `app/src/lib/crypto/` — MK + obsah
   XChaCha20-Poly1305 (AD = kanonická hlavička), wrap MK `crypto_box_seal`
   na SPK (ADR-010), obálka v1 podepsaná IK, `sealMessage`/`openMessage`
   mezi zařízeními, wipe (memzero). OPK cílení až s CF výdejem (řez 4).
 - **Testy:** `npm test` — 21 unit (vektory RFC 8032, RFC 7748,
   draft-irtf-cfrg-xchacha A.3.1; fuzz obálek; roundtrip 2 zařízení);
-  `npm run test:emu` — 9 integračních (Rules + registrace).
-  Lint i typecheck zelené.
+  `npm run test:emu` — 17 integračních (Rules meta+ephemeral vč.
+  časového gate, registrace zařízení). Lint i typecheck zelené.
 
 ## Reálný Firebase projekt (dev)
 
@@ -59,6 +65,7 @@ Repo: https://github.com/petr-homolka/minuta
 
 ## Další krok
 
-**Řez 3 (42 §3): Data model + Rules `ephemeral`** — kolekce spaces/
-messages/payload, gate přes `readAt` (36 §2), emulátorové Rules testy
-(36 §5) a vyřešení druhé DB v emulátoru (viz infra/README.md).
+**Řez 4 (42 §3): 1:1 zpráva end-to-end** — Cloud Function pro založení
+duo Space (36 §4), odeslání (obálka+payload), listener, otevření
+(readAt), dešifrování, odpočet 60 s → wipe (08, 34). K tomu kombinovaný
+dev soubor Rules pro emulátor (infra/README.md).

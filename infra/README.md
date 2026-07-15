@@ -19,11 +19,14 @@ Firestore emulátor (firebase-tools 14.27) **nepodporuje více databází** —
 řez 1 potřebuje jen `meta`, mapovanou na `(default)`. Klient bere instance
 z jednoho místa (`app/src/lib/firebase.ts`).
 
-**TODO(řez 3):** oddělení `ephemeral` v emulátoru vyřešit jednou z cest:
-novější emulátor s multi-DB podporou / druhá instance emulátoru na jiném
-portu / v nouzi oddělení kolekcí s tím, že Rules obou DB zůstávají v
-samostatných souborech (deploy do prod je vždy na dvě pojmenované DB).
-`firestore.ephemeral.rules` (default deny) je připraveno.
+**Řešení pro testy (řez 3):** každý soubor emulátorových testů si nahraje
+svoje Rules přes `initializeTestEnvironment` (per-DB soubory zůstávají
+oddělené, kolekce obou DB nekolidují) — testy proto běží sériově
+(`fileParallelism: false`). Deploy do prod je vždy na dvě pojmenované DB.
+
+**TODO(řez 4):** pro `vite dev` proti emulátoru bude potřeba kombinovaný
+dev soubor Rules (sjednocení meta+ephemeral; kolekce nekolidují), nebo
+do té doby multi-DB podpora emulátoru.
 
 ## TODO před zřízením reálných prostředí (45)
 
