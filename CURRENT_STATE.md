@@ -4,9 +4,10 @@ Aktualizováno: 2026-07-14
 
 ## Fáze
 
-**Řezy 1–6 (42 §3) HOTOVY:** Skelet + Auth · Krypto jádro · Data model
+**Řezy 1–7 (42 §3) HOTOVY:** Skelet + Auth · Krypto jádro · Data model
 + Rules `ephemeral` · 1:1 zpráva end-to-end · Space + pozvánky + QR ·
-**Kontrola odesílatele (N7)**. Repo: https://github.com/petr-homolka/minuta
+Kontrola odesílatele (N7) · **Známí + identita (40, 37)**.
+Repo: https://github.com/petr-homolka/minuta
 
 ## Co funguje (ověřeno testy i ručně v prohlížeči)
 
@@ -49,10 +50,15 @@ Aktualizováno: 2026-07-14
   burn now (spálit během hoření), stav „přečteno HH:MM · shořelo",
   burn-all — CF `burnAll` smaže všechny mé živé zprávy ve všech Spaces
   (collection-group dotaz, chunkované batche); v UI dvoukrokové potvrzení.
-- **Testy:** `npm test` — 23 unit; `npm run test:emu` — 28 integračních
-  (Rules meta+ephemeral, registrace, E2E duo přes pozvánku, vícečlenný
-  Space, pozvánky vč. hesla/revokace/expirace, unsend/burn now/burn-all).
-  Lint i typecheck zelené.
+- **Známí + identita (řez 7, 40 + 37):** šifrovaný roster — roster key
+  zabalený per zařízení (seal na SPK), záznamy pod NÁHODNÝMI ID (server
+  nevidí páry, jen počet); „Napsat Známému" = duo přímo přes `peerUid`
+  (40 §2). Identicon 5×5 z otisku IK; bezpečnostní kód 12 číslic + QR
+  (33 §6), „ověřeno ✓" vázané na konkrétní IK; key-change už není tvrdá
+  chyba, ale banner s volbou „Důvěřovat novým klíčům" (37 §3).
+- **Testy:** `npm test` — 30 unit; `npm run test:emu` — 31 integračních
+  (+ roster roundtrip proti Rules, cizí roster nečitelný, duo přes
+  peerUid). Lint i typecheck zelené.
 
 ## Reálný Firebase projekt (dev)
 
@@ -93,9 +99,7 @@ Aktualizováno: 2026-07-14
 
 ## Další krok
 
-**Řez 7 (42 §3): Známí + identita** — roster blob (40, šifrovaný contacts
-blob v `meta`), identicon z otisku IK, safety code 12 číslic + QR
-(33 §6, 37 §4), key change banner místo tvrdé chyby (37 §3).
+**Řez 8 (42 §3): T&S minimum** — report → moderační projekt (29),
+blokace uživatele (27), rate limity. Poté řez 9 (UX pass — mj. rozpad
+ChatScreen, 293 řádků těsně pod limitem 31 §2) a řez 10 (zpevnění).
 Zvážit: Blaze na minuta-dev kvůli nasazení CF (chat na web.app).
-Pozn.: burn-all v prod vyžaduje collection-group index `messages.senderUid`
-(zapsáno v infra/README).

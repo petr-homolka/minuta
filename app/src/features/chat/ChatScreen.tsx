@@ -7,12 +7,14 @@ import { ephemeralDb, functions } from "../../lib/firebase";
 import { loadDeviceIdentity, type DeviceIdentity } from "../device/key-store";
 import { callGetKeyBundles, callGetSpaceKeyBundles } from "./api";
 import { InvitePanel } from "./InvitePanel";
+import { PeerPanel } from "./PeerPanel";
 import {
   burnOwnMessage,
   MAX_TEXT_LENGTH,
   openReceivedMessage,
   sendTextMessage,
 } from "./messages";
+import { acceptNewKey, KeyChangedError } from "./tofu";
 import { useBurnCountdown } from "./useBurnCountdown";
 import { useMessages, type MessageMeta } from "./useChatData";
 
@@ -24,6 +26,12 @@ export function ChatScreen(props: { uid: string; spaceId: string; onBack: () => 
   const [error, setError] = useState<string | null>(null);
   const [openedMsgId, setOpenedMsgId] = useState<string | null>(null);
   const [showInvite, setShowInvite] = useState(false);
+  const [showPeer, setShowPeer] = useState(false);
+  const [keyChange, setKeyChange] = useState<{
+    uid: string;
+    deviceId: string;
+    newPk: string;
+  } | null>(null);
 
   async function requireIdentity(): Promise<DeviceIdentity> {
     const identity = await loadDeviceIdentity(props.uid);
@@ -106,8 +114,23 @@ export function ChatScreen(props: { uid: string; spaceId: string; onBack: () => 
       });
       setOpenedMsgId(message.msgId);
       ignite(opened.plaintext);
-    } catch {
-      setError("Zprávu se nepodařilo otevřít (možná už shořela).");
+    } catch (e) {
+      if (e instanceof KeyChangedError) {
+        // 37 §3: nezablokovat, ale nezprehlednutelne upozornit.
+        const senderDevices = await callGetKeyBundles(
+          functions,
+          message.senderUid,
+          props.spaceId,
+        ).catch(() => []);
+        const device = senderDevices.find((d) => d.deviceId === message.senderDeviceId);
+        setKeyChange({
+          uid: message.senderUid,
+          deviceId: message.senderDeviceId,
+          newPk: device?.identityPk ?? "",
+        });
+      } else {
+        setError("Zprávu se nepodařilo otevřít (možná už shořela).");
+      }
     } finally {
       setBusy(false);
     }
@@ -124,9 +147,44 @@ export function ChatScreen(props: { uid: string; spaceId: string; onBack: () => 
         onClick={() => setShowInvite((v) => !v)}
       >
         {showInvite ? "Skrýt pozvánku" : "Pozvat"}
+      </button>{" "}
+      <button
+        type="button"
+        className="secondary"
+        onClick={() => setShowPeer((v) => !v)}
+      >
+        {showPeer ? "Skrýt ověření" : "Ověřit / Známí"}
       </button>
       <h2>Space {props.spaceId.slice(0, 8)}…</h2>
       {showInvite && <InvitePanel spaceId={props.spaceId} />}
+      {showPeer && <PeerPanel uid={props.uid} spaceId={props.spaceId} />}
+
+      {keyChange && (
+        <div className="banner">
+          <p>
+            ⚠️ Klíče protistrany se změnily — nové zařízení, nebo nový telefon.
+            Ověř bezpečnostní kód, pokud si chceš být jistý (37 §3).
+          </p>
+          <button
+            type="button"
+            disabled={busy || keyChange.newPk === ""}
+            onClick={() => {
+              void acceptNewKey(keyChange.uid, keyChange.deviceId, keyChange.newPk).then(
+                () => setKeyChange(null),
+              );
+            }}
+          >
+            Důvěřovat novým klíčům
+          </button>{" "}
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => setKeyChange(null)}
+          >
+            Zavřít
+          </button>
+        </div>
+      )}
 
       <ul className="messages">
         {messages.map((m) => (

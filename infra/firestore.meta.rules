@@ -57,8 +57,16 @@ service cloud.firestore {
         }
       }
 
-      match /contacts/{contactUid} {
-        // Sifrovany blob (40) - server obsah necte, jen vlastnik.
+      match /contacts/{contactId} {
+        // Sifrovany blob (40 §3) - server obsah necte, jen vlastnik.
+        // ID dokumentu je NAHODNE (ne uid protistrany) - parove vazby
+        // zustavaji serveru skryte, viditelny je jen pocet zaznamu.
+        allow read, write: if isOwner(uid);
+      }
+
+      match /roster/{docId} {
+        // Roster key zabaleny pro zarizeni vlastnika (40 §3) -
+        // server vidi jen neprulomne wraps, cist/psat smi jen vlastnik.
         allow read, write: if isOwner(uid);
       }
     }

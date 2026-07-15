@@ -138,3 +138,22 @@ code {
   word-break: break-all;
   color: #7dd3fc;
 }
+
+.banner {
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.code {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+
+li.contact {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}

@@ -71,6 +71,19 @@ export async function generateDeviceKeys(): Promise<GeneratedDeviceKeys> {
   };
 }
 
+/**
+ * Odvodi verejny Ed25519 IK z privatniho. Libsodium serializuje
+ * crypto_sign secret key jako seed(32) || publicKey(32) - verejna cast
+ * je dokumentovane poslednich 32 B (zadna kryptografie, jen format).
+ */
+export async function identityPublicFromSecret(identitySk: Uint8Array): Promise<string> {
+  const sodium = await getSodium();
+  if (identitySk.length !== 64) {
+    throw new Error("Ed25519 privatni klic ma mit 64 B.");
+  }
+  return sodium.to_base64(identitySk.subarray(32), sodium.base64_variants.ORIGINAL);
+}
+
 /** Odvodi verejny X25519 klic z privatniho (crypto_scalarmult_base). */
 export async function x25519PublicFromSecret(secretKey: Uint8Array): Promise<string> {
   const sodium = await getSodium();

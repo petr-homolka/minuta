@@ -32,11 +32,12 @@ function call<Req, Res>(functions: Functions, name: string) {
 export async function callCreateSpace(
   functions: Functions,
   type: "duo" | "space",
+  peerUid?: string,
 ): Promise<string> {
-  const result = await call<{ type: string }, { spaceId: string }>(
-    functions,
-    "createSpace",
-  )({ type });
+  const result = await call<
+    { type: string; peerUid?: string },
+    { spaceId: string }
+  >(functions, "createSpace")({ type, ...(peerUid ? { peerUid } : {}) });
   return result.data.spaceId;
 }
 

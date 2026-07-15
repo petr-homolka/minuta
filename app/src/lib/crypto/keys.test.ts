@@ -2,7 +2,13 @@
 // overuji, ze libsodium primitiva pouzivame spravne; property testy
 // overuji tvar a konzistenci bundle. Vektory jsou verejne konstanty.
 import { describe, expect, it } from "vitest";
-import { generateDeviceKeys, OPK_BATCH_SIZE, verifySignedPrekey } from "./keys";
+import {
+  generateDeviceKeys,
+  identityPublicFromSecret,
+  OPK_BATCH_SIZE,
+  verifySignedPrekey,
+  x25519PublicFromSecret,
+} from "./keys";
 import { getSodium } from "./sodium";
 
 // RFC 8032 §7.1 TEST 1 (Ed25519): seed -> verejny klic + podpis prazdne zpravy.
@@ -93,6 +99,17 @@ describe("generateDeviceKeys (33 §1)", () => {
     await expect(
       verifySignedPrekey("neni-base64!", publicBundle.signedPrekey),
     ).resolves.toBe(false);
+  });
+
+  it("verejne klice jdou odvodit z privatnich (multi-sezeni bez ulozenych pk)", async () => {
+    const { publicBundle, privateKeys } = await generateDeviceKeys();
+    await expect(identityPublicFromSecret(privateKeys.identitySk)).resolves.toBe(
+      publicBundle.identityPk,
+    );
+    await expect(x25519PublicFromSecret(privateKeys.signedPrekeySk)).resolves.toBe(
+      publicBundle.signedPrekey.pk,
+    );
+    await expect(identityPublicFromSecret(new Uint8Array(32))).rejects.toThrow();
   });
 
   it("kazde volani generuje jine klice", async () => {

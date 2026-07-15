@@ -4,6 +4,7 @@
 // link/QR se vytvari uvnitr Space (InvitePanel).
 import { useState } from "react";
 import { ephemeralDb, functions } from "../../lib/firebase";
+import { ContactsList } from "../contacts/ContactsList";
 import { callBurnAll, callCreateSpace } from "./api";
 import { useMySpaces } from "./useChatData";
 
@@ -33,6 +34,7 @@ export function ChatHome(props: {
 
   return (
     <section>
+      <ContactsList uid={props.uid} onOpenSpace={props.onOpenSpace} />
       <h2>Konverzace</h2>
       {spaces.length === 0 && (
         <p className="note">Zatím žádná. Založ novou, nebo vstup pozvánkou.</p>
