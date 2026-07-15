@@ -1,13 +1,13 @@
 # MINUTA — Aktuální stav projektu
 
-Aktualizováno: 2026-07-14
+Aktualizováno: 2026-07-15
 
 ## Fáze
 
-**Řezy 1–9 (42 §3) HOTOVY:** Skelet + Auth · Krypto jádro · Data model
-+ Rules `ephemeral` · 1:1 zpráva end-to-end · Space + pozvánky + QR ·
-Kontrola odesílatele (N7) · Známí + identita (40, 37) · T&S minimum
-(27, 29) · **UX pass (28, 43)**. Repo: https://github.com/petr-homolka/minuta
+**VŠECH 10 ŘEZŮ MVP (42 §3) HOTOVO.** Skelet + Auth · Krypto jádro ·
+Data model + Rules · 1:1 zpráva E2E · Space + pozvánky + QR · Kontrola
+odesílatele · Známí + identita · T&S minimum · UX pass · **Zpevnění**.
+Repo: https://github.com/petr-homolka/minuta
 
 ## Co funguje (ověřeno testy i ručně v prohlížeči)
 
@@ -77,8 +77,16 @@ Kontrola odesílatele (N7) · Známí + identita (40, 37) · T&S minimum
   transform/opacity, flat mode přes prefers-reduced-motion); Service
   Worker (vite-plugin-pwa, autoUpdate, jen app shell — obsah nikdy).
   Ověřeno naživo v prohlížeči. Nasazeno na web.app.
-- **Testy:** `npm test` — 31 unit; `npm run test:emu` — 35 integračních
-  (+ report/blokace/anonymní omezení/rate limit). Lint i typecheck zelené.
+- **Zpevnění (řez 10, 17 + 20):** bezpečnostní hlavičky na Hostingu —
+  CSP (script-src 'self' + 'wasm-unsafe-eval' pro libsodium WASM,
+  connect-src jen Firebase endpointy, frame-ancestors 'none'), HSTS,
+  nosniff, Referrer-Policy no-referrer, Permissions-Policy; VDP:
+  `/.well-known/security.txt` (safe harbor); force update / kill switch:
+  CF `getConfig` čte `config/client` (klientům nedostupný, změna = čtyři
+  oči 29 §1.4), klient s nižší verzí = hard block, síťová chyba =
+  fail-open. Ověřeno na web.app včetně WASM pod CSP.
+- **Testy:** `npm test` — 32 unit; `npm run test:emu` — 37 integračních.
+  Lint i typecheck zelené.
 
 ## Reálný Firebase projekt (dev)
 
@@ -117,12 +125,19 @@ Kontrola odesílatele (N7) · Známí + identita (40, 37) · T&S minimum
 - Backstage konzole: https://claude.ai/code/artifact/c332b37b-3ed0-4595-a88f-1246520effb3
 - Marketingový web (46): https://claude.ai/code/artifact/77c44b41-0f8a-4da6-85eb-9f2c7e631ca5
 
-## Další krok
+## Další krok — cesta k V1 (exit kritéria 42 §4)
 
-**Řez 10 (42 §3): Zpevnění** — CSP/HSTS hlavičky (17), budget cap
-+ alerty (32 §3), force-update config (20), i18n katalog (28 — texty
-zatím natvrdo česky), plné 3D efekty ze 43 (částice, překlop obálky).
-Poté exit kritéria V1 (42 §4): externí audit krypto, pentest, DPIA,
-Blaze + Terraform provisioning (45).
-Pozn.: moderační úložiště v prod = ODDĚLENÝ projekt (45); zpráv/min
-rate limit vyžaduje CF-send nebo App Check.
+Kód MVP je kompletní. Zbývá (většina mimo kód):
+
+1. **Provisioning (45):** Blaze na minuta-dev (nasazení CF → chat na
+   webu), poté Terraform: staging/prod, dvě pojmenované DB (`ephemeral`
+   PITR/backup OFF — ověřit!), TTL politiky, collection-group indexy,
+   budget 5 €/měs + alerty (32 §3), oddělený moderační projekt,
+   App Check, doména + odesílací e-mail.
+2. **Externí:** audit kryptografie (33), penetrační test, DPIA (02),
+   prohlášení o přístupnosti (28), warrant canary + transparency report
+   (20), status page + expiry canary.
+3. **Kódové dluhy před V1:** i18n katalog (28 — texty natvrdo česky),
+   OPK jednorázový výdej, offline outbox (08 §2), kick/leave + rotace
+   signál, code-split bundle (~1,4 MB), CI pipeline (GitHub Actions, 20),
+   plné 3D efekty ze 43, zpráv/min limit (App Check / CF-send).

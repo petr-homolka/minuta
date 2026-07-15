@@ -1,0 +1,8 @@
+# Minuta - Vulnerability Disclosure Policy (20, 03)
+# Nahlaste nam zranitelnost - vyzkumnikum jednajicim v dobre vire
+# garantujeme bezpecny pristav (safe harbor). Placeny bug bounty
+# planujeme od Faze 2.
+Contact: mailto:security@minuta.app
+Preferred-Languages: cs, en
+Expires: 2027-07-15T00:00:00.000Z
+# Policy: https://minuta.app/security (TODO po spusteni webu, 46)

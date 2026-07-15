@@ -113,6 +113,17 @@ export async function callRevokeInvite(
   )({ tokenHash });
 }
 
+/** Klientska konfigurace (20): force update / kill switch + flagy. */
+export async function callGetConfig(
+  functions: Functions,
+): Promise<{ minSupportedVersion: number; features: Record<string, boolean> }> {
+  const result = await call<
+    Record<string, never>,
+    { minSupportedVersion: number; features: Record<string, boolean> }
+  >(functions, "getConfig")({});
+  return result.data;
+}
+
 /** Nahlaseni zpravy (27) - dukaz uz je zapeceteny na klic moderace. */
 export async function callReportMessage(
   functions: Functions,

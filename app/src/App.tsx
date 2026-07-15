@@ -5,11 +5,13 @@ import { useEffect, useState } from "react";
 import { AuthScreen } from "./features/auth/AuthScreen";
 import { completeMagicLinkIfPresent } from "./features/auth/magic-link";
 import { signOutUser, useAuth } from "./features/auth/useAuth";
+import { callGetConfig } from "./features/chat/api";
 import { ChatHome } from "./features/chat/ChatHome";
 import { ChatScreen } from "./features/chat/ChatScreen";
 import { JoinInvite } from "./features/chat/JoinInvite";
 import { ensureDeviceRegistered } from "./features/device/registration";
-import { metaDb } from "./lib/firebase";
+import { functions, metaDb } from "./lib/firebase";
+import { isVersionSupported } from "./lib/version";
 
 /** Precte token pozvanky z fragmentu (#join=...) bez vedlejsiho ucinku. */
 function readJoinToken(): string | null {
@@ -34,8 +36,14 @@ export function App() {
   const [device, setDevice] = useState<DeviceState>({ status: "pending" });
   const [openSpaceId, setOpenSpaceId] = useState<string | null>(null);
   const [joinToken, setJoinToken] = useState<string | null>(null);
+  const [outdated, setOutdated] = useState(false);
 
   useEffect(() => {
+    // Force update / kill switch (20): explicitne nizsi verze = hard
+    // block; sitova chyba = fail-open (offline uzivatele nezamykame).
+    callGetConfig(functions)
+      .then((config) => setOutdated(!isVersionSupported(config.minSupportedVersion)))
+      .catch(() => setOutdated(false));
     setJoinToken(readJoinToken());
     completeMagicLinkIfPresent().catch(() => {
       // Neplatny/prosly odkaz - uzivatel proste zustane na prihlaseni.
@@ -72,6 +80,17 @@ export function App() {
     };
   }, [user]);
 
+  if (outdated) {
+    return (
+      <main className="card">
+        <h1>Minuta</h1>
+        <p>
+          Tahle verze aplikace už není z bezpečnostních důvodů podporovaná.
+          Zavři a znovu otevři aplikaci — aktualizace proběhne sama.
+        </p>
+      </main>
+    );
+  }
   if (loading) {
     return <main className="card">Načítám…</main>;
   }
