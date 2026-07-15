@@ -1,10 +1,14 @@
-// Mapa: vstupni bod - detekce povinnych API (14), pak mount Reactu.
-// Nepodporovany prohlizec = zadny degradovany rezim, jen vysvetleni.
+// Mapa: vstupni bod - detekce povinnych API (14), registrace Service
+// Workera (offline shell, auto-update) a mount Reactu. Nepodporovany
+// prohlizec = zadny degradovany rezim, jen vysvetleni.
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { registerSW } from "virtual:pwa-register";
 import { App } from "./App";
 import { missingRequiredApis } from "./lib/support";
 import "./app.css";
+
+registerSW({ immediate: true });
 
 const root = document.getElementById("root");
 if (!root) {

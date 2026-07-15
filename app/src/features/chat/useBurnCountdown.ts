@@ -19,9 +19,12 @@ export function useBurnCountdown(): {
   ignite: (plaintext: Uint8Array) => void;
   /** Okamzite uhaseni (napr. po nahlaseni, 27) - wipe + stav "shorelo". */
   snuff: () => void;
+  /** Oznameni pro AT (28): otevreni, 30 s, 10 s, shorelo - aria-live. */
+  announcement: string;
 } {
   const [burning, setBurning] = useState<BurningMessage | null>(null);
   const [burned, setBurned] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
   const bytesRef = useRef<Uint8Array | null>(null);
 
   function extinguish() {
@@ -36,6 +39,7 @@ export function useBurnCountdown(): {
     extinguish();
     bytesRef.current = plaintext;
     setBurned(false);
+    setAnnouncement("Zpráva otevřena — zmizí za minutu.");
     setBurning({
       text: new TextDecoder().decode(plaintext),
       secondsLeft: MESSAGE_LIFETIME_MS / 1000,
@@ -55,10 +59,13 @@ export function useBurnCountdown(): {
         extinguish();
         setBurning(null);
         setBurned(true);
+        setAnnouncement("Zpráva shořela.");
       } else {
-        setBurning((prev) =>
-          prev ? { ...prev, secondsLeft: Math.ceil(left / 1000) } : prev,
-        );
+        const seconds = Math.ceil(left / 1000);
+        // Decentni milniky pro AT (28): jen 30 s a 10 s, zadny spam.
+        if (seconds === 30) setAnnouncement("Zbývá 30 sekund.");
+        if (seconds === 10) setAnnouncement("Zbývá 10 sekund.");
+        setBurning((prev) => (prev ? { ...prev, secondsLeft: seconds } : prev));
       }
     }, 250);
     return () => clearInterval(timer);
@@ -70,10 +77,11 @@ export function useBurnCountdown(): {
     extinguish();
     setBurning(null);
     setBurned(true);
+    setAnnouncement("Zpráva shořela.");
   }
 
   // Unmount = okamzity wipe (plaintext nikdy neprezije obrazovku).
   useEffect(() => extinguish, []);
 
-  return { burning, burned, ignite, snuff };
+  return { burning, burned, ignite, snuff, announcement };
 }

@@ -1,7 +1,16 @@
-/* Minimalni skelet vzhledu - plny design "Sklo a cas" (43) prijde v rezu 9. */
+/* "Sklo a cas" (43 §1) - MVP vrstva: L0 dychajici ambient, L1 sklenene
+ * karty/bubliny, akcent ember #FF4D2E pro cas. Jen transform/opacity
+ * animace (kompozitor); flat mode pres prefers-reduced-motion vypina
+ * vse (43 - vse funguje i bez animaci). Canvas castice a 3D preklop
+ * obalky: TODO plny design pass (43 §1 efekty 1,3,5). */
 :root {
   color-scheme: dark;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --ember: #ff4d2e;
+  --calm: #7dd3fc;
+  --glass: rgba(255, 255, 255, 0.06);
+  --glass-edge: rgba(255, 255, 255, 0.14);
+  --ink-soft: #94a3b8;
 }
 
 body {
@@ -9,40 +18,41 @@ body {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  background: radial-gradient(circle at 30% 20%, #16213f, #0b1020 65%);
+  background:
+    radial-gradient(circle at 30% 20%, #16213f, transparent 60%),
+    radial-gradient(circle at 75% 80%, #1a1030, transparent 55%),
+    #0b1020;
+  background-size: 160% 160%;
+  animation: ambient-breath 18s ease-in-out infinite alternate;
   color: #e2e8f0;
 }
 
+@keyframes ambient-breath {
+  from { background-position: 0% 0%, 100% 100%, 0 0; }
+  to { background-position: 25% 15%, 80% 70%, 0 0; }
+}
+
 .card {
-  width: min(26rem, 92vw);
+  width: min(28rem, 94vw);
   padding: 2rem;
   border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--glass);
+  border: 1px solid var(--glass-edge);
   backdrop-filter: blur(12px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
 }
 
-h1 {
-  margin: 0 0 0.25rem;
-  font-size: 1.6rem;
-}
+h1 { margin: 0 0 0.25rem; font-size: 1.6rem; }
+h2 { font-size: 1.15rem; }
+h3 { font-size: 1rem; color: var(--ink-soft); }
 
-.tagline {
-  margin: 0 0 1.5rem;
-  color: #94a3b8;
-}
+.tagline { margin: 0 0 1.5rem; color: var(--ink-soft); }
 
-form {
-  display: grid;
-  gap: 0.5rem;
-}
+form { display: grid; gap: 0.5rem; }
+label { font-size: 0.85rem; color: var(--ink-soft); }
 
-label {
-  font-size: 0.85rem;
-  color: #94a3b8;
-}
-
-input {
+input,
+select {
   padding: 0.6rem 0.75rem;
   border-radius: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -56,16 +66,19 @@ button {
   padding: 0.65rem 1rem;
   border-radius: 0.5rem;
   border: none;
-  background: #38bdf8;
+  background: var(--calm);
   color: #06121f;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
 }
 
-button:disabled {
-  opacity: 0.6;
-  cursor: wait;
+button:disabled { opacity: 0.6; cursor: wait; }
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--calm);
+  outline-offset: 2px;
 }
 
 button.secondary {
@@ -75,70 +88,82 @@ button.secondary {
   font-weight: 400;
 }
 
-hr {
-  margin: 1.25rem 0;
+button.linklike {
+  background: none;
   border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.note {
-  font-size: 0.85rem;
-  color: #94a3b8;
-}
-
-.note.error {
-  color: #fca5a5;
-}
-
-dl {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.35rem 1rem;
-  margin: 0 0 1rem;
-}
-
-dt {
-  color: #94a3b8;
-}
-
-dd {
   margin: 0;
+  padding: 0;
+  color: var(--calm);
+  font-size: inherit;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
+hr { margin: 1.25rem 0; border: none; border-top: 1px solid var(--glass-edge); }
+
+.note { font-size: 0.85rem; color: var(--ink-soft); }
+.note.error { color: #fca5a5; }
+.empty-state {
+  text-align: center;
+  color: var(--ink-soft);
+  padding: 1.5rem 0;
+  font-style: italic;
+}
+
+/* ------ zpravy: zive sklo (43 efekt 6, zjemnene) ------ */
 ul.messages,
 ul.spaces {
   list-style: none;
   margin: 0 0 1rem;
   padding: 0;
   display: grid;
-  gap: 0.5rem;
+  gap: 0.6rem;
 }
 
-li.mine {
-  text-align: right;
+ul.messages li { display: flex; }
+li.mine { justify-content: flex-end; text-align: right; }
+li.theirs { justify-content: flex-start; }
+
+.bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.9rem;
+  background: var(--glass);
+  border: 1px solid var(--glass-edge);
+  backdrop-filter: blur(8px);
+  animation: bubble-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.15);
 }
 
-.countdown {
-  color: #f59e0b;
-  font-variant-numeric: tabular-nums;
+.bubble.open { animation: bubble-in 0.45s, float 7s ease-in-out 1s infinite alternate; }
+.bubble-text { max-width: 16rem; overflow-wrap: break-word; text-align: left; }
+
+button.envelope {
+  background: var(--glass);
+  border: 1px solid var(--glass-edge);
+  color: #e2e8f0;
+  font-weight: 500;
+  backdrop-filter: blur(8px);
+  animation: bubble-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.15);
 }
 
-button.linklike {
-  background: none;
-  border: none;
-  margin: 0;
-  padding: 0;
-  color: #7dd3fc;
-  font-size: inherit;
-  text-decoration: underline;
-  cursor: pointer;
+.burned { opacity: 0.6; }
+.note.reading { display: inline-flex; align-items: center; gap: 0.4rem; }
+.countdown { color: #f59e0b; font-variant-numeric: tabular-nums; }
+.timering { flex-shrink: 0; }
+
+@keyframes bubble-in {
+  from { transform: translateY(14px) scale(0.97); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
 }
 
-code {
-  word-break: break-all;
-  color: #7dd3fc;
+@keyframes float {
+  from { transform: translateY(0); }
+  to { transform: translateY(-2px); }
 }
 
+/* ------ system (L3): bannery, pozvanky, kontakty ------ */
 .banner {
   margin: 0.75rem 0;
   padding: 0.75rem;
@@ -147,13 +172,33 @@ code {
   background: rgba(245, 158, 11, 0.12);
 }
 
-.code {
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.08em;
+.code { font-variant-numeric: tabular-nums; letter-spacing: 0.08em; }
+code { word-break: break-all; color: var(--calm); }
+li.contact { display: flex; align-items: center; gap: 0.5rem; }
+.invite img { border-radius: 0.5rem; margin: 0.5rem 0; }
+
+dl { display: grid; grid-template-columns: auto 1fr; gap: 0.35rem 1rem; margin: 0 0 1rem; }
+dt { color: var(--ink-soft); }
+dd { margin: 0; }
+
+/* Vizualne skryte, ale citelne pro AT (28). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
-li.contact {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+/* ------ Flat mode (43): reduced motion vypina VSECHNY animace ------ */
+@media (prefers-reduced-motion: reduce) {
+  body,
+  .bubble,
+  .bubble.open,
+  button.envelope {
+    animation: none !important;
+  }
+  .timering circle { transition: none !important; }
 }

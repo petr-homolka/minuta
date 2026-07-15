@@ -4,10 +4,10 @@ Aktualizováno: 2026-07-14
 
 ## Fáze
 
-**Řezy 1–8 (42 §3) HOTOVY:** Skelet + Auth · Krypto jádro · Data model
+**Řezy 1–9 (42 §3) HOTOVY:** Skelet + Auth · Krypto jádro · Data model
 + Rules `ephemeral` · 1:1 zpráva end-to-end · Space + pozvánky + QR ·
-Kontrola odesílatele (N7) · Známí + identita (40, 37) · **T&S minimum
-(27, 29)**. Repo: https://github.com/petr-homolka/minuta
+Kontrola odesílatele (N7) · Známí + identita (40, 37) · T&S minimum
+(27, 29) · **UX pass (28, 43)**. Repo: https://github.com/petr-homolka/minuta
 
 ## Co funguje (ověřeno testy i ručně v prohlížeči)
 
@@ -67,6 +67,16 @@ Kontrola odesílatele (N7) · Známí + identita (40, 37) · **T&S minimum
   (27/N4). Rate limity: hodinová okna v CF (createSpace 10, invites 10,
   join 30, reports 20). Dev klíč moderace: public v kódu, secret v
   `infra/moderation-dev-secret.local` (mimo git).
+- **UX pass (řez 9, 28 + 43):** stavy zpráv PŘESNĚ dle tabulky 28
+  (✓✓ doručeno · „Čte se… ⏱" se zrcadlovým mini-ringem · „Přečteno
+  HH:MM · Shořelo HH:MM" · „⌛ Zpráva shořela"); TimeRing 60→0 s
+  (posledních 10 s ember #FF4D2E, číslo vždy — nikdy jen barva);
+  empty state „Zprávy tu žijí jen minutu."; aria-live oznámení
+  (otevření/30 s/10 s/shořelo) + aria-labels + focus-visible; „Sklo
+  a čas" MVP vrstva (dýchající ambient, skleněné bubliny, animace jen
+  transform/opacity, flat mode přes prefers-reduced-motion); Service
+  Worker (vite-plugin-pwa, autoUpdate, jen app shell — obsah nikdy).
+  Ověřeno naživo v prohlížeči. Nasazeno na web.app.
 - **Testy:** `npm test` — 31 unit; `npm run test:emu` — 35 integračních
   (+ report/blokace/anonymní omezení/rate limit). Lint i typecheck zelené.
 
@@ -109,11 +119,10 @@ Kontrola odesílatele (N7) · Známí + identita (40, 37) · **T&S minimum
 
 ## Další krok
 
-**Řez 9 (42 §3): UX pass** — design „Sklo a čas" (43, HTML návrh
-v artefaktu), prstenec odpočtu, stavy a empty states (28), přístupnost,
-Service Worker/instalovatelnost. Poté řez 10 (zpevnění: CSP/HSTS,
-budget alerty, force-update config).
-Zvážit: Blaze na minuta-dev kvůli nasazení CF (chat na web.app).
-Pozn. řez 8: moderační úložiště je v prod ODDĚLENÝ projekt (45) —
-v dev simulováno kolekcí `moderationReports`; zpráv/min rate limit
-vyžaduje CF-send nebo App Check (TODO řez 10).
+**Řez 10 (42 §3): Zpevnění** — CSP/HSTS hlavičky (17), budget cap
++ alerty (32 §3), force-update config (20), i18n katalog (28 — texty
+zatím natvrdo česky), plné 3D efekty ze 43 (částice, překlop obálky).
+Poté exit kritéria V1 (42 §4): externí audit krypto, pentest, DPIA,
+Blaze + Terraform provisioning (45).
+Pozn.: moderační úložiště v prod = ODDĚLENÝ projekt (45); zpráv/min
+rate limit vyžaduje CF-send nebo App Check.

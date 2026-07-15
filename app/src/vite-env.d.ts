@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+/// <reference types="vite-plugin-pwa/client" />
 
 // Typy env promennych (viz .env.devcloud). Vsechny volitelne -
 // bez nich bezi aplikace v DEV rezimu proti emulatorum.

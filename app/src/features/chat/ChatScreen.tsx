@@ -24,7 +24,7 @@ import { useMessages, type MessageMeta } from "./useChatData";
 
 export function ChatScreen(props: { uid: string; spaceId: string; onBack: () => void }) {
   const allMessages = useMessages(ephemeralDb, props.spaceId);
-  const { burning, burned, ignite, snuff } = useBurnCountdown();
+  const { burning, burned, ignite, snuff, announcement } = useBurnCountdown();
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -215,6 +215,14 @@ export function ChatScreen(props: { uid: string; spaceId: string; onBack: () => 
         />
       )}
 
+      {/* Oznameni odpoctu pro odecitace obrazovky (28) - vizualne skryte. */}
+      <div aria-live="polite" className="sr-only">
+        {announcement}
+      </div>
+
+      {messages.length === 0 && (
+        <p className="empty-state">Zprávy tu žijí jen minutu.</p>
+      )}
       <ul className="messages">
         {messages.map((m) => (
           <li key={m.msgId} className={m.senderUid === props.uid ? "mine" : "theirs"}>
