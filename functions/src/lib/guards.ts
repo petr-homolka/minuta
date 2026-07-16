@@ -1,7 +1,7 @@
 // Mapa: sdilene autorizacni pomucky Cloud Functions (18 §4, 27).
-//   requireAuth        - prihlaseny uzivatel (vc. anonymniho)
-//   requireFullAccount - NE-anonymni ucet (27: anonymni smi jen odpovidat
-//                        v pozvane konverzaci; nezaklada Spaces/pozvanky)
+//   requireAuth        - prihlaseny uzivatel (vc. anonymniho); anonym smi
+//                        zakladat konverzace i pozvanky (ADR-013 - ochrana
+//                        proti zneuziti je App Check + rate limity, ne e-mail)
 //   blockedBetween     - existuje blokace v kteremkoli smeru (27 §Blokovani)
 //   enforceRateLimit   - pevne okno per uzivatel a operace (27 §Rate limiting;
 //                        citace v meta, jen frekvence - zadny obsah, zadny graf)
@@ -13,18 +13,6 @@ export function requireAuth(request: CallableRequest): string {
   const uid = request.auth?.uid;
   if (!uid) {
     throw new HttpsError("unauthenticated", "Prihlaseni je povinne.");
-  }
-  return uid;
-}
-
-export function requireFullAccount(request: CallableRequest): string {
-  const uid = requireAuth(request);
-  const provider = request.auth?.token.firebase?.sign_in_provider;
-  if (provider === "anonymous") {
-    throw new HttpsError(
-      "permission-denied",
-      "Anonymni ucet smi jen odpovidat v pozvane konverzaci (27).",
-    );
   }
   return uid;
 }

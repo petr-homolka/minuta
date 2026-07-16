@@ -1,12 +1,13 @@
-// Mapa: zalozeni Space (18 §2 "POST /v1/spaces"; 36 §4 - jen CF).
-// Vse je Space (ADR-006): duo = strop 2 clenu, space = strop 16 (free, 11).
-// Clenove pribyvaji pozvankou (11 §Vstup, invites.ts); vyjimka dle 40 §2:
-// duo se Znamym lze zalozit primo s peerUid (bez noveho magic linku).
+// Mapa: zalozeni a opusteni Space (18 §2; 36 §4 - jen CF).
+//   createSpace - vse je Space (ADR-006): duo = strop 2, space = strop 16
+//     (free, 11). Anonym smi zakladat (ADR-013). Clenove pribyvaji
+//     pozvankou (invites.ts); vyjimka 40 §2: duo se Znamym primo peerUid.
+//   leaveSpace  - odchod ucastnika = zanik cele mistnosti (ADR-014).
 // Limity free tarifu: 3 aktivni Spaces na ucet.
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { ephemeralDb, metaDb, REGION } from "./lib/db";
-import { blockedBetween, enforceRateLimit, requireFullAccount } from "./lib/guards";
+import { blockedBetween, enforceRateLimit, requireAuth } from "./lib/guards";
 
 const SPACE_TTL_MS = 24 * 3_600_000; // free Space zije 24 h (11)
 const MAX_ACTIVE_SPACES_FREE = 3; // 11 §Limity
@@ -16,8 +17,8 @@ export function memberLimit(spaceType: string): number {
 }
 
 export const createSpace = onCall({ region: REGION }, async (request) => {
-  // 27: anonymni ucet nezaklada konverzace - smi jen odpovidat v pozvane.
-  const uid = requireFullAccount(request);
+  // Anonym smi zakladat (ADR-013); ochrana je rate limit + App Check (45).
+  const uid = requireAuth(request);
   await enforceRateLimit(uid, "createSpace", 10);
   const type: unknown = request.data?.type;
   if (type !== "duo" && type !== "space") {
@@ -93,4 +94,40 @@ export const createSpace = onCall({ region: REGION }, async (request) => {
   await batch.commit();
 
   return { spaceId: spaceRef.id };
+});
+
+// Odchod ucastnika = mistnost prestane existovat (ADR-014). Smaze VSE:
+// zpravy + payloady + cleny (recursiveDelete cely podstrom), pozvanky
+// i Space. Zadna zbytkova mistnost; ostatni clenove jsou vyhozeni
+// (jejich listenery na Space doc uvidi zanik). Kdokoli clen muze ukoncit.
+export const leaveSpace = onCall({ region: REGION }, async (request) => {
+  const uid = requireAuth(request);
+  const spaceId: unknown = request.data?.spaceId;
+  if (typeof spaceId !== "string" || spaceId.length === 0 || spaceId.length > 128) {
+    throw new HttpsError("invalid-argument", "spaceId chybi nebo ma spatny tvar.");
+  }
+  const spaceRef = ephemeralDb.doc(`spaces/${spaceId}`);
+  const member = await spaceRef.collection("members").doc(uid).get();
+  if (!member.exists) {
+    throw new HttpsError("permission-denied", "Nelze opustit.");
+  }
+
+  // Pozvanky teto mistnosti (link/QR prestanou platit). Pocet je maly
+  // (rate limit 10/h), ale radeji chunkovane pod limitem 500 na batch.
+  const invites = await ephemeralDb
+    .collection("invites")
+    .where("spaceId", "==", spaceId)
+    .get();
+  for (let i = 0; i < invites.docs.length; i += 400) {
+    const batch = ephemeralDb.batch();
+    for (const invite of invites.docs.slice(i, i + 400)) {
+      batch.delete(invite.ref);
+    }
+    await batch.commit();
+  }
+
+  // Cely podstrom Space (members, messages, messages/*/payload) + Space doc.
+  await ephemeralDb.recursiveDelete(spaceRef);
+
+  return { burned: true };
 });

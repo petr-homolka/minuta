@@ -48,7 +48,7 @@ function validMessage() {
     senderDeviceId: "dev-alice",
     createdAt: serverTimestamp(),
     readAt: null,
-    expireAt: Timestamp.fromMillis(Date.now() + 24 * HOUR),
+    expireAt: Timestamp.fromMillis(Date.now() + HOUR), // default 1 h (ADR-014)
   };
 }
 
@@ -119,13 +119,21 @@ describe("clen: cteni a odeslani (36 §2)", () => {
     await assertFails(getDocs(collection(db, "spaces")));
   });
 
-  it("odesle zpravu jen svym jmenem, serverovym casem a TTL ~24 h", async () => {
+  it("odesle zpravu jen svym jmenem, serverovym casem a TTL v koridoru", async () => {
     await seed();
     const db = env.authenticatedContext(ALICE).firestore();
     await assertSucceeds(setDoc(doc(db, msgPath("m-ok")), validMessage()));
     // payload spolu s obalkou
     await assertSucceeds(
       setDoc(doc(db, payloadPath("m-ok")), { ciphertext: "YWJj" }),
+    );
+    // Kratsi TTL nez default projde (uvolneny koridor, ADR-014) - kratsi
+    // je vzdy bezpecne (fail-secure).
+    await assertSucceeds(
+      setDoc(doc(db, msgPath("m-short")), {
+        ...validMessage(),
+        expireAt: Timestamp.fromMillis(Date.now() + 60_000),
+      }),
     );
 
     // cizi jmeno
@@ -143,13 +151,14 @@ describe("clen: cteni a odeslani (36 §2)", () => {
     await assertFails(
       setDoc(doc(db, msgPath("m4")), { ...validMessage(), readAt: Timestamp.now() }),
     );
-    // TTL mimo koridor 23-25 h (ADR-011)
+    // TTL nad stropem ~24 h neprojde (ADR-014 strop free tarifu)
     await assertFails(
       setDoc(doc(db, msgPath("m5")), {
         ...validMessage(),
         expireAt: Timestamp.fromMillis(Date.now() + 48 * HOUR),
       }),
     );
+    // expireAt == request.time (serverTimestamp) neprojde (musi byt > now)
     await assertFails(
       setDoc(doc(db, msgPath("m6")), { ...validMessage(), expireAt: serverTimestamp() }),
     );

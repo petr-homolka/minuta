@@ -43,7 +43,10 @@ service cloud.firestore {
           && request.resource.data.senderDeviceId is string
           && request.resource.data.createdAt == request.time
           && request.resource.data.readAt == null
-          && request.resource.data.expireAt > request.time + duration.value(23, 'h')
+          // TTL pojistka: uvolneny koridor (now, ~24 h] - klient/admin voli
+          // hodnotu (default 1 h, ADR-014); kratsi je vzdy bezpecne
+          // (fail-secure), strop ~24 h drzi slib free tarifu.
+          && request.resource.data.expireAt > request.time
           && request.resource.data.expireAt < request.time + duration.value(25, 'h');
 
         // OTEVRENI (34 §2): jediny povoleny update, jednorazovy prechod

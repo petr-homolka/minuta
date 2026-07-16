@@ -2,11 +2,12 @@
 // (zamek 34 §2), 60s odpocet s wipe, key-change banner (37 §3),
 // nahlaseni (27) a skryvani obalek od blokovanych. Radky zprav
 // vykresluje MessageRow.tsx; plny vizual "Sklo a cas" (43) v rezu 9.
+import { doc, onSnapshot } from "firebase/firestore";
 import { useEffect, useState, type FormEvent } from "react";
 import { x25519PublicFromSecret } from "../../lib/crypto/keys";
 import { ephemeralDb, functions, metaDb } from "../../lib/firebase";
 import { loadDeviceIdentity, type DeviceIdentity } from "../device/key-store";
-import { callGetKeyBundles, callGetSpaceKeyBundles } from "./api";
+import { callGetKeyBundles, callGetSpaceKeyBundles, callLeaveSpace } from "./api";
 import { listBlockedUids } from "./blocks";
 import { InvitePanel } from "./InvitePanel";
 import { MessageRow } from "./MessageRow";
@@ -33,6 +34,7 @@ export function ChatScreen(props: { uid: string; spaceId: string; onBack: () => 
   const [showPeer, setShowPeer] = useState(false);
   const [reporting, setReporting] = useState<MessageMeta | null>(null);
   const [blocked, setBlocked] = useState<Set<string>>(new Set());
+  const [leaveConfirm, setLeaveConfirm] = useState(false);
   const [keyChange, setKeyChange] = useState<{
     uid: string;
     deviceId: string;
@@ -44,6 +46,16 @@ export function ChatScreen(props: { uid: string; spaceId: string; onBack: () => 
       .then(setBlocked)
       .catch(() => setBlocked(new Set()));
   }, [props.uid, showPeer]); // showPeer: po (od)blokovani v panelu obnovit
+
+  // Zanik mistnosti (ADR-014): kdyz Space doc zmizi (nekdo odesel nebo
+  // owner spalil), vyhod me z obrazovky. Bezi i pro toho, kdo neodesel.
+  useEffect(() => {
+    return onSnapshot(doc(ephemeralDb, "spaces", props.spaceId), (snap) => {
+      if (!snap.exists()) props.onBack();
+    });
+    // onBack je stabilni akce navigace; re-subscribe pri jeho zmene nevadi
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.spaceId]);
 
   // Obalky od blokovanych se nezobrazuji (27) - server jim navic
   // nevydava nase bundly, takze nove zpravy pro nas ani nevznikaji.
@@ -95,6 +107,18 @@ export function ChatScreen(props: { uid: string; spaceId: string; onBack: () => 
     } catch {
       setError("Spálení selhalo.");
     } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleLeave() {
+    setBusy(true);
+    setError(null);
+    try {
+      await callLeaveSpace(functions, props.spaceId);
+      props.onBack(); // Space listener by nas vyhodil tak jako tak.
+    } catch {
+      setError("Místnost se nepodařilo ukončit.");
       setBusy(false);
     }
   }
@@ -170,8 +194,36 @@ export function ChatScreen(props: { uid: string; spaceId: string; onBack: () => 
         onClick={() => setShowPeer((v) => !v)}
       >
         {showPeer ? "Skrýt ověření" : "Ověřit / Známí"}
+      </button>{" "}
+      <button
+        type="button"
+        className="secondary"
+        disabled={busy}
+        onClick={() => setLeaveConfirm(true)}
+      >
+        Ukončit místnost
       </button>
       <h2>Space {props.spaceId.slice(0, 8)}…</h2>
+
+      {leaveConfirm && (
+        <div className="banner">
+          <p>
+            Odchodem <b>místnost zanikne pro všechny</b> — všechny zprávy
+            zmizí a nikdo se už nepřipojí (ADR-014).
+          </p>
+          <button type="button" disabled={busy} onClick={() => void handleLeave()}>
+            Ano, ukončit místnost
+          </button>{" "}
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => setLeaveConfirm(false)}
+          >
+            Zrušit
+          </button>
+        </div>
+      )}
+
       {showInvite && <InvitePanel spaceId={props.spaceId} />}
       {showPeer && <PeerPanel uid={props.uid} spaceId={props.spaceId} />}
 

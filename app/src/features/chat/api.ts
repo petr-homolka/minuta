@@ -142,6 +142,17 @@ export async function callReportMessage(
   return result.data.reportId;
 }
 
+/** Odchod z mistnosti = zanik cele mistnosti pro vsechny (ADR-014). */
+export async function callLeaveSpace(
+  functions: Functions,
+  spaceId: string,
+): Promise<void> {
+  await call<{ spaceId: string }, { burned: boolean }>(
+    functions,
+    "leaveSpace",
+  )({ spaceId });
+}
+
 /** Panika (N7 bod 4): spali vsechny me zive zpravy ve vsech Spaces. */
 export async function callBurnAll(functions: Functions): Promise<number> {
   const result = await call<Record<string, never>, { deleted: number }>(

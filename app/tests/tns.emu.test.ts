@@ -32,17 +32,19 @@ afterAll(async () => {
 });
 
 describe("T&S minimum (rez 8)", () => {
-  it("anonymni ucet nezaklada Space/pozvanku, ale smi vstoupit a odpovidat", async () => {
-    await expect(callCreateSpace(anon.functions, "space")).rejects.toThrow();
+  it("anonymni ucet zaklada Space i pozvanky (ADR-013) a smi vstoupit/odpovidat", async () => {
+    // Anonym muze zalozit vlastni konverzaci i pozvanku (jako plny ucet).
+    const anonSpace = await callCreateSpace(anon.functions, "space");
+    const anonInvite = await callCreateInvite(anon.functions, {
+      spaceId: anonSpace,
+      maxUses: 5,
+    });
+    expect(anonInvite.token).toBeTruthy();
 
+    // A soucasne smi vstoupit do cizi konverzace pozvankou a videt cleny.
     const spaceId = await callCreateSpace(alice.functions, "space");
     const invite = await callCreateInvite(alice.functions, { spaceId, maxUses: 5 });
     await expect(callJoinSpace(anon.functions, invite.token)).resolves.toBe(spaceId);
-    await expect(
-      callCreateInvite(anon.functions, { spaceId, maxUses: 1 }),
-    ).rejects.toThrow();
-
-    // Odpovidat smi: vydej bundlu clenum funguje i anonymnimu.
     const recipients = await callGetSpaceKeyBundles(anon.functions, spaceId);
     expect(recipients.map((r) => r.uid)).toContain(alice.uid);
   }, 60_000);

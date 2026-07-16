@@ -6,12 +6,7 @@ import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypt
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { ephemeralDb, REGION } from "./lib/db";
-import {
-  blockedBetween,
-  enforceRateLimit,
-  requireAuth,
-  requireFullAccount,
-} from "./lib/guards";
+import { blockedBetween, enforceRateLimit, requireAuth } from "./lib/guards";
 import { memberLimit } from "./spaces";
 
 const MAX_TTL_MIN = 7 * 24 * 60;
@@ -24,8 +19,8 @@ function hashToken(token: string): string {
 }
 
 export const createInvite = onCall({ region: REGION }, async (request) => {
-  // 27: anonymni ucet negeneruje magic linky.
-  const uid = requireFullAccount(request);
+  // Anonym smi vytvaret pozvanky (ADR-013); ochrana = rate limit + App Check.
+  const uid = requireAuth(request);
   await enforceRateLimit(uid, "createInvite", 10);
   const { spaceId, expiresInMinutes, maxUses, password } = request.data ?? {};
   if (typeof spaceId !== "string" || spaceId.length === 0) {

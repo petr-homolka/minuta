@@ -33,11 +33,18 @@ i pro pověst produktu. Tento dokument definuje ochranné mechanismy, které
   notifikace blokovanému.
 - Blokace funguje i vůči anonymním účtům (blokuje se účet i zařízení).
 
-## Omezení anonymních účtů (vazba na N4)
+## Omezení anonymních účtů (vazba na N4) — REVIDOVÁNO (ADR-013)
 
-- Anonymní účet smí **odpovídat v konverzaci, do které byl pozván**;
-  nesmí zakládat nové konverzace ani generovat magic linky.
-- Povýšení na plný účet = přidání e-mailu (magic link ověření).
+- **Anonymní účet smí zakládat konverzace i pozvánky stejně jako plný
+  účet.** Původní omezení (anonym jen odpovídá) je zrušeno: e-mailová
+  brána je slabá zábrana (throwaway e-mail obchází motivovaného útočníka)
+  a přitom odrazuje privacy-first cílovku. Skutečné riziko — hromadné
+  automatizované generování odkazů coby doručovací nástroj phishingu
+  jinde — řeší **App Check + rate limity per zařízení/IP**, ne e-mail.
+- E-mail je **volitelný** upgrade (obnova identity, nalezitelnost
+  Známými, 40), nikdy podmínka pro použití.
+- Přiznaná mez (26): bez trvalé identity je ban-evasion triviální;
+  proti tomu stojí App Check, rate limity a report/block, ne víc.
 
 ## Rate limiting a anti-spam
 

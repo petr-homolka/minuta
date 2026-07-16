@@ -3,7 +3,7 @@
 // oba prijemci prectou v temze okne (34 §5, ADR-012).
 import { initializeTestEnvironment } from "@firebase/rules-unit-testing";
 import { deleteApp } from "firebase/app";
-import { doc, Timestamp, updateDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, Timestamp, updateDoc } from "firebase/firestore";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   callCreateInvite,
@@ -11,6 +11,7 @@ import {
   callGetKeyBundles,
   callGetSpaceKeyBundles,
   callJoinSpace,
+  callLeaveSpace,
   callPreviewInvite,
   callRevokeInvite,
 } from "../src/features/chat/api";
@@ -168,5 +169,55 @@ describe("Space + pozvanky (rez 5)", () => {
     await callCreateSpace(frank.functions, "space");
     await expect(callCreateSpace(frank.functions, "space")).rejects.toThrow();
     await deleteApp(frank.app);
+  }, 60_000);
+
+  it("odchod ucastnika spali celou mistnost (ADR-014)", async () => {
+    // Cerstve ucty - alice ma z predchozich testu vycerpany limit 3 Spaces.
+    const host = await createParty("sp-leave-host");
+    const guest = await createParty("sp-leave-guest");
+    const spaceId = await callCreateSpace(host.functions, "space");
+    const invite = await callCreateInvite(host.functions, { spaceId, maxUses: 5 });
+    await callJoinSpace(guest.functions, invite.token);
+
+    // Host posle zpravu (aby existoval message + payload ke smazani).
+    const identity = await loadDeviceIdentity(host.uid);
+    if (!identity) throw new Error("host bez klicu");
+    const recipients = await callGetSpaceKeyBundles(host.functions, spaceId);
+    const msgId = await sendTextMessage({
+      db: host.db,
+      spaceId,
+      text: "tahle mistnost za chvili zanikne",
+      sender: {
+        uid: host.uid,
+        deviceId: host.deviceId,
+        identitySk: identity.privateKeys.identitySk,
+      },
+      recipients,
+    });
+
+    // Guest odejde -> cela mistnost prestane existovat pro vsechny.
+    await callLeaveSpace(guest.functions, spaceId);
+
+    // Space, cleny, zpravy i pozvanka jsou pryc (cteme adminem mimo Rules).
+    const env = await initializeTestEnvironment({ projectId: "demo-minuta" });
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      expect((await getDoc(doc(db, "spaces", spaceId))).exists()).toBe(false);
+      expect(
+        (await getDocs(collection(db, "spaces", spaceId, "members"))).empty,
+      ).toBe(true);
+      expect(
+        (await getDoc(doc(db, "spaces", spaceId, "messages", msgId))).exists(),
+      ).toBe(false);
+      expect((await getDoc(doc(db, "invites", invite.tokenHash))).exists()).toBe(false);
+    });
+    await env.cleanup();
+
+    // Pozvanka uz neplati; neclen mistnost opustit nemuze.
+    await expect(callJoinSpace(carol.functions, invite.token)).rejects.toThrow();
+    await expect(callLeaveSpace(carol.functions, spaceId)).rejects.toThrow();
+
+    await deleteApp(host.app);
+    await deleteApp(guest.app);
   }, 60_000);
 });

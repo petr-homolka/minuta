@@ -21,7 +21,10 @@ import { uuidv7 } from "../../lib/ids";
 import { trustIdentityKey } from "./tofu";
 
 export const MAX_TEXT_LENGTH = 4_000; // 08 §6
-const HOUR = 3_600_000;
+// Neprectena zprava vyprsi default za 1 h (ADR-014; drive 24 h). Rules
+// dovoli kratsi i delsi az ke stropu 24 h - kratsi je vzdy bezpecne
+// (fail-secure, 34 §5). Admin muze default zvednout (config, budouci).
+const UNREAD_TTL_MS = 3_600_000;
 
 export interface SenderIdentity {
   uid: string;
@@ -58,7 +61,7 @@ export async function sendTextMessage(input: {
     senderDeviceId: input.sender.deviceId,
     createdAt: serverTimestamp(),
     readAt: null,
-    expireAt: Timestamp.fromMillis(Date.now() + 24 * HOUR), // TTL, ADR-011
+    expireAt: Timestamp.fromMillis(Date.now() + UNREAD_TTL_MS), // TTL, ADR-011/014
   });
   batch.set(doc(collection(messageRef, "payload"), "v"), {
     ciphertext: Bytes.fromUint8Array(payload),

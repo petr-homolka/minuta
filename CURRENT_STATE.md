@@ -9,6 +9,15 @@ Data model + Rules · 1:1 zpráva E2E · Space + pozvánky + QR · Kontrola
 odesílatele · Známí + identita · T&S minimum · UX pass · **Zpevnění**.
 Repo: https://github.com/petr-homolka/minuta
 
+**Produktová revize (ADR-013, ADR-014):** anonymní účet smí **zakládat
+konverzace i pozvánky** (bez e-mailu — ochrana je App Check + rate
+limity, ne e-mailová brána; e-mail je volitelný upgrade). Nepřečtená
+zpráva vyprší default za **1 h** (dřív 24 h; konfigurovatelné do 24 h
+stropu). **Odchod účastníka = zánik celé místnosti** (`leaveSpace` CF —
+smaže zprávy, členy, pozvánky i Space; kdokoli člen může ukončit pro
+všechny). Tok „klikni → pošli QR → druhý klikne → píšete si → odchod
+zháší místnost" je tím kompletní.
+
 ## Co funguje (ověřeno testy i ručně v prohlížeči)
 
 - **Monorepo:** `app/` (PWA React 18 + TS strict + Vite), `functions/`
@@ -29,7 +38,7 @@ Repo: https://github.com/petr-homolka/minuta
   update (null→`request.time`, jen příjemcem, jednorázově); payload
   čitelný VÝHRADNĚ v okně `readAt+90 s` (počítáno v Rules — invariant
   42 §5.3); unsend jen odesílatel; spaces/members/invites jen přes CF.
-  `expireAt` (TTL pojistka) přes koridor — ADR-011.
+  `expireAt` (TTL pojistka) přes uvolněný koridor (now, ~24 h] — ADR-011/014.
 - **Krypto jádro (řez 2, 33 §2–3):** `app/src/lib/crypto/` — MK + obsah
   XChaCha20-Poly1305 (AD = kanonická hlavička), wrap MK `crypto_box_seal`
   na SPK (ADR-010), obálka v1 podepsaná IK, `sealMessage`/`openMessage`
