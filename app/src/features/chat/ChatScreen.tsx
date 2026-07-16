@@ -48,11 +48,17 @@ export function ChatScreen(props: { uid: string; spaceId: string; onBack: () => 
   }, [props.uid, showPeer]); // showPeer: po (od)blokovani v panelu obnovit
 
   // Zanik mistnosti (ADR-014): kdyz Space doc zmizi (nekdo odesel nebo
-  // owner spalil), vyhod me z obrazovky. Bezi i pro toho, kdo neodesel.
+  // owner spalil), vyhod me z obrazovky. Smazani clenstvi se z pohledu
+  // uz-neclena projevi jako permission-denied (ne jako !exists), proto
+  // odchazime i pri chybe listeneru. Bezi i pro toho, kdo neodesel.
   useEffect(() => {
-    return onSnapshot(doc(ephemeralDb, "spaces", props.spaceId), (snap) => {
-      if (!snap.exists()) props.onBack();
-    });
+    return onSnapshot(
+      doc(ephemeralDb, "spaces", props.spaceId),
+      (snap) => {
+        if (!snap.exists()) props.onBack();
+      },
+      () => props.onBack(),
+    );
     // onBack je stabilni akce navigace; re-subscribe pri jeho zmene nevadi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.spaceId]);

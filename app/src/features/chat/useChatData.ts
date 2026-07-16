@@ -50,18 +50,24 @@ export function useMessages(db: Firestore, spaceId: string): MessageMeta[] {
       collection(db, "spaces", spaceId, "messages"),
       orderBy("createdAt", "asc"),
     );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setMessages(
-        snapshot.docs.map((d) => ({
-          msgId: d.id,
-          senderUid: d.get("senderUid") as string,
-          senderDeviceId: d.get("senderDeviceId") as string,
-          envelope: d.get("envelope") as EnvelopeV1,
-          createdAt: d.get("createdAt") as Timestamp | null,
-          readAt: d.get("readAt") as Timestamp | null,
-        })),
-      );
-    });
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        setMessages(
+          snapshot.docs.map((d) => ({
+            msgId: d.id,
+            senderUid: d.get("senderUid") as string,
+            senderDeviceId: d.get("senderDeviceId") as string,
+            envelope: d.get("envelope") as EnvelopeV1,
+            createdAt: d.get("createdAt") as Timestamp | null,
+            readAt: d.get("readAt") as Timestamp | null,
+          })),
+        );
+      },
+      // Ztrata pristupu (mistnost zanikla / vyhozeni) - jen uklid, bez
+      // neosetrene chyby; ChatScreen navic uzivatele vyhodi (ADR-014).
+      () => setMessages([]),
+    );
     return () => {
       unsubscribe();
       setMessages([]); // odchod z obrazovky = odpojeni + uklid (08 §1)
